@@ -639,6 +639,8 @@ func _next_target(s: Shaft, c: Shaft.Car, mode: int) -> int:
 	return -9999
 
 func _service_floor(s: Shaft, c: Shaft.Car, r: int, _mode: int) -> void:
+	if not c.riders.is_empty() or s.waiting_at(r) > 0:
+		Audio.play("ding", "elevators", -20.0)
 	c.stops.erase(r)
 	c.state = Shaft.CarState.DOORS
 	c.door_minutes = Rules.ELEVATOR_DOOR_MINUTES + float(s.floor_departure) / 60.0

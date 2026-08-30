@@ -124,6 +124,11 @@ down**.
   below and beside.
 - **Escalators pool trade**: two commercial floors joined by one share
   customers, as the manual promises.
+- **Sound**, synthesized at startup rather than shipped as files: the lift
+  chime, the cash register, hammering on a building site, the fanfare when the
+  tower gains a star, the alarm for a fire or a bomb, and sleigh bells at
+  Christmas. The manual's three independent toggles — Elevators, Background,
+  Events — are on the Options menu and work separately.
 - **Events.** Fire (which spreads, which security fights according to how close
   they are, and which the helicopter always puts out); the terrorist, who
   demands money and whose bomb always goes off at one o'clock if security does
@@ -183,8 +188,10 @@ tools/           the checks, and the screenshot mode
 extras/          the original manual
 ```
 
-There are no image or sound files: everything is drawn from primitives, so the
-project is self-contained and there is nothing to license.
+`scripts/core/audio.gd` synthesizes every sound into an `AudioStreamWAV` at
+startup. There are no image or sound files anywhere: everything is drawn from
+primitives and every sound is generated, so the project is self-contained and
+there is nothing to license.
 
 ---
 
@@ -238,3 +245,16 @@ be changed:
   in the scan.
 - **Rent tiers** are four, as the manual's Pricing view implies (High, Average,
   Low, Very Low), with the middle tier set to the measured quarterly income.
+
+## Not done
+
+Honest list of what is in the original and is not here yet:
+
+- The elevator window's **Simulate** button, which fast-forwards a shaft to
+  show you where its cars will be shortly.
+- Metro passengers are supposed to **shop and eat only on the underground
+  level**; here they use the whole building.
+- **Stairs and escalators have no queue** — the manual gives them a capacity of
+  21, which is not enforced.
+- The **Animation** options (People / Effect) have nothing to switch off,
+  because the drawing is cheap enough not to need them.

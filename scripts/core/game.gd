@@ -47,6 +47,7 @@ func _ready() -> void:
 	set_process(true)
 
 func new_game() -> void:
+	_teardown()
 	tower = Tower.new()
 	clock = GameClock.new()
 	econ = Economy.new()
@@ -61,6 +62,42 @@ func new_game() -> void:
 	_wire()
 	say("Costruisci un atrio per cominciare.")
 	tower_changed.emit()
+
+## Tower, Router, SimEngine and TowerEvents all hold each other, and Tower's
+## signal holds Router back, so a discarded game would never be freed. Break
+## the cycle before building a new one -- otherwise every "New tower" leaks
+## the whole previous simulation.
+func _teardown() -> void:
+	if tower == null:
+		return
+	if router != null and tower.structure_changed.is_connected(router.clear_cache):
+		tower.structure_changed.disconnect(router.clear_cache)
+	for c in tower.structure_changed.get_connections():
+		tower.structure_changed.disconnect(c["callable"])
+	if clock != null:
+		for sig in [clock.day_started, clock.day_ended, clock.quarter_ended,
+				clock.minute_passed]:
+			for c in sig.get_connections():
+				sig.disconnect(c["callable"])
+	if engine != null:
+		for c in engine.sim_left_for_good.get_connections():
+			engine.sim_left_for_good.disconnect(c["callable"])
+		for c in engine.message.get_connections():
+			engine.message.disconnect(c["callable"])
+		engine.sims.clear()
+		engine.walking_by_row.clear()
+	if events != null:
+		for c in events.announce.get_connections():
+			events.announce.disconnect(c["callable"])
+		for c in events.ask.get_connections():
+			events.ask.disconnect(c["callable"])
+	if econ != null:
+		for c in econ.transaction.get_connections():
+			econ.transaction.disconnect(c["callable"])
+	router = null
+	engine = null
+	events = null
+	tower = null
 
 func _wire() -> void:
 	clock.day_started.connect(_on_day_started)
@@ -563,6 +600,7 @@ func try_place(type: String, seg: int, row: int, drag_w: int = -1,
 			return _fail("Non hai i soldi per costruire il piano")
 		return _fail("Non hai i soldi per costruire")
 	econ.spend_construction(total)
+	Audio.play("build", "background", -12.0)
 	var f := tower.place(type, seg, row, w)
 	if f != null:
 		_after_place(f)
@@ -667,6 +705,7 @@ func try_bulldoze(seg: int, row: int) -> void:
 		return
 	if not res["ok"]:
 		return
+	Audio.play("wreck", "background", -12.0)
 	if String(res["kind"]) == "facility":
 		var refund: int = int(res.get("refund", 0))
 		if refund < 0:

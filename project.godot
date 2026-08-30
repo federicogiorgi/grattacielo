@@ -38,3 +38,4 @@ pause_toggle={
 [autoload]
 
 Game="*res://scripts/core/game.gd"
+Audio="*res://scripts/core/audio.gd"

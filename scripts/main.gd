@@ -20,6 +20,7 @@ var elevator_window: ElevatorWindow
 var find_window: FindWindow
 var ask_dialog: AskDialog
 var menu_panel: PanelContainer
+var options_menu: MenuButton
 
 var pan_from := Vector2.ZERO
 var panning := false
@@ -52,6 +53,7 @@ func _ready() -> void:
 	Game.star_changed.connect(func(_s): tool_bar.refresh())
 	Game.ask_player.connect(func(q, t): ask_dialog.ask(q, t))
 	Game.tower_changed.connect(func(): pass)
+	Audio.listen(Game)
 	set_process(true)
 	set_process_unhandled_input(true)
 	_maybe_screenshot_mode()
@@ -196,12 +198,22 @@ func _build_menus() -> void:
 	row.add_child(wins)
 
 	var opts := MenuButton.new()
+	options_menu = opts
 	opts.text = "Opzioni"
-	opts.get_popup().add_item("Chiama i vigili del fuoco", 0)
-	opts.get_popup().add_separator()
-	opts.get_popup().add_item("Zoom +", 1)
-	opts.get_popup().add_item("Zoom -", 2)
-	opts.get_popup().id_pressed.connect(_options_menu)
+	var op := opts.get_popup()
+	op.add_item("Chiama i vigili del fuoco", 0)
+	op.add_separator()
+	op.add_item("Zoom +", 1)
+	op.add_item("Zoom -", 2)
+	op.add_separator()
+	# The manual's three independent sound toggles.
+	op.add_check_item("Suono: ascensori", 3)
+	op.add_check_item("Suono: ambiente", 4)
+	op.add_check_item("Suono: eventi", 5)
+	op.set_item_checked(op.get_item_index(3), true)
+	op.set_item_checked(op.get_item_index(4), true)
+	op.set_item_checked(op.get_item_index(5), true)
+	op.id_pressed.connect(_options_menu)
 	row.add_child(opts)
 
 func _build_windows() -> void:
@@ -282,6 +294,15 @@ func _options_menu(id: int) -> void:
 				Game.say("Non c e' nessun incendio.")
 		1: _zoom(1)
 		2: _zoom(-1)
+		3, 4, 5:
+			var op: PopupMenu = options_menu.get_popup()
+			var i: int = op.get_item_index(id)
+			var on: bool = not op.is_item_checked(i)
+			op.set_item_checked(i, on)
+			match id:
+				3: Audio.elevators_on = on
+				4: Audio.background_on = on
+				5: Audio.events_on = on
 
 # --- per-frame -------------------------------------------------------------
 
