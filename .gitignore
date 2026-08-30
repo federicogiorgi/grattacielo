@@ -1,0 +1,38 @@
+# The scanned SimTower manual. It is Maxis' copyright, it is only a reference
+# for building this, and it was already excluded before any code was written.
+extras/
+
+# Godot
+.godot/
+.import/
+export.cfg
+export_presets.cfg
+
+# Builds
+build/
+android/
+*.apk
+*.aab
+*.exe
+*.pck
+*.zip
+
+# Signing material -- never, under any circumstances
+*.jks
+*.keystore
+*.p12
+credentials*
+service-account*.json
+
+# Editor / OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+*.tmp
+*~
+
+# Scratch
+work/
+obsolete/
+shot*.png
