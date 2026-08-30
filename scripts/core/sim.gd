@@ -41,7 +41,7 @@ var doomed: bool = false          # leaving the tower for good
 func display_name() -> String:
 	if person_name != "":
 		return person_name
-	return Names.ROLES.get(role, "Persona")
+	return Names.ROLES.get(role, "Person")
 
 func colour() -> Color:
 	if person_name != "":

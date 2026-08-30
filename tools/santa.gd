@@ -15,7 +15,7 @@ func _ok(cond: bool, msg: String) -> void:
 		print("FAIL: ", msg)
 
 func _initialize() -> void:
-	print("--- Babbo Natale ---")
+	print("--- Santa Claus ---")
 	var g = load("res://scripts/core/game.gd").new()
 	root.add_child(g)
 	g.new_game()

@@ -62,27 +62,27 @@ const RAIN_PATRON_FACTOR := 0.5 # "rainy days get about half the normal traffic"
 # Population thresholds and the extra conditions each level demands.
 const STARS := [
 	{
-		"stars": 1, "name": "1 stella", "pop": 0,
+		"stars": 1, "name": "1 star", "pop": 0,
 		"needs": [],
 	},
 	{
-		"stars": 2, "name": "2 stelle", "pop": 300,
+		"stars": 2, "name": "2 stars", "pop": 300,
 		"needs": [],
 	},
 	{
-		"stars": 3, "name": "3 stelle", "pop": 1000,
+		"stars": 3, "name": "3 stars", "pop": 1000,
 		"needs": ["security"],
 	},
 	{
-		"stars": 4, "name": "4 stelle", "pop": 5000,
+		"stars": 4, "name": "4 stars", "pop": 5000,
 		"needs": ["hotel_suite", "medical", "recycling", "vip"],
 	},
 	{
-		"stars": 5, "name": "5 stelle", "pop": 10000,
+		"stars": 5, "name": "5 stars", "pop": 10000,
 		"needs": ["metro"],
 	},
 	{
-		"stars": 6, "name": "GRATTACIELO", "pop": 15000,
+		"stars": 6, "name": "TOWER", "pop": 15000,
 		"needs": ["cathedral"],
 	},
 ]
@@ -132,7 +132,7 @@ const P_VIP := 0.35
 # --- Rent tiers ------------------------------------------------------------
 # How a tenant feels about what you charge. Index matches FacilityDB rents.
 const RENT_STRESS := [-22.0, -8.0, 0.0, 20.0]
-const RENT_LABELS := ["Molto basso", "Basso", "Medio", "Alto"]
+const RENT_LABELS := ["Very Low", "Low", "Average", "High"]
 
 static func eval_of_quality(q: float) -> int:
 	if q >= QUALITY_A:

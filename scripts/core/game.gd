@@ -60,7 +60,7 @@ func new_game() -> void:
 	selected_sim = -1
 	tool = "lobby"
 	_wire()
-	say("Costruisci un atrio per cominciare.")
+	say("Build a lobby to begin.")
 	tower_changed.emit()
 
 ## Tower, Router, SimEngine and TowerEvents all hold each other, and Tower's
@@ -175,7 +175,7 @@ func _on_day_started(day_in_quarter: int, weekend: bool) -> void:
 	engine.begin_day()
 	engine.plan_day(weekend, day_in_quarter)
 	if weekend:
-		say("Fine settimana.")
+		say("Weekend.")
 		_maybe_wedding()
 
 ## On Sundays people gather in the cathedral, and once -- if your soul is pure
@@ -186,8 +186,8 @@ func _maybe_wedding() -> void:
 	if tower.count_of_type("cathedral") == 0:
 		return
 	events.wedding_done = true
-	econ.earn_other(1000000, "Matrimonio in cattedrale")
-	say("Un matrimonio in cattedrale! Si sentono le campane su tutta la citta.")
+	econ.earn_other(1000000, "Cathedral wedding")
+	say("A wedding in the cathedral! The bells carry right across the city.")
 
 func _on_day_ended() -> void:
 	_collect_daily_income()
@@ -219,7 +219,7 @@ func _collect_daily_income() -> void:
 			/ maxf(float(f.capacity()), 1.0)))
 		econ.earn(f.type, amount2)
 	if food_take != 0 or hotel != 0:
-		say("Incassi del giorno: " + Economy.money(food_take + hotel))
+		say("Today's takings: " + Economy.money(food_take + hotel))
 
 func _update_patronage() -> void:
 	_share_across_escalators()
@@ -274,8 +274,9 @@ func _hotel_housekeeping() -> void:
 		elif _absolute_day() - f.dirty_since_day >= Rules.DIRTY_ROOM_DAYS_TO_ROACHES:
 			if not f.roaches:
 				f.roaches = true
-				say("Scarafaggi al piano " + FacilityDB.row_label(f.row)
-					+ ". Va demolita.")
+				Audio.play("bad", "events", -8.0)
+				say("Cockroaches on floor " + FacilityDB.row_label(f.row)
+					+ ". The room must be demolished.")
 
 func _absolute_day() -> int:
 	return ((clock.year - 1) * Rules.QUARTERS_PER_YEAR + (clock.quarter - 1)) \
@@ -294,9 +295,10 @@ func _evaluate_all() -> void:
 		if suite != null:
 			events.vip_happy = suite.eval == Rules.Eval.A and not suite.dirty
 			if events.vip_happy:
-				say("Il VIP e' soddisfatto della torre.")
+				say("The VIP is delighted with your tower.")
 			else:
-				say("Il VIP non e' soddisfatto. Nessun avanzamento di livello.")
+				say("The VIP is not impressed. No promotion for you.")
+				Audio.play("bad", "events", -8.0)
 		events.vip_room = -1
 
 ## Radial broadcasting: noisy neighbours above, below and beside.
@@ -353,7 +355,7 @@ func _rest_period() -> void:
 						_sell_condo(f)
 						moved_in += 1
 				elif f.eval == Rules.Eval.C:
-					econ.charge(f.sale_price, "Appartamento restituito")
+					econ.charge(f.sale_price, "Condominium refunded")
 					f.sold = false
 					_evict(f)
 					moved_out += 1
@@ -369,9 +371,9 @@ func _rest_period() -> void:
 				if f.occupants.is_empty() and f.capacity() > 0:
 					_staff(f)
 	if moved_out > 0:
-		say("%d inquilini hanno lasciato la torre." % moved_out)
+		say("%d tenants have left the tower." % moved_out)
 	elif moved_in > 0:
-		say("%d nuovi inquilini." % moved_in)
+		say("%d new tenants." % moved_in)
 	_check_stars()
 	_check_demands()
 
@@ -427,7 +429,7 @@ func _lease_shop(f: Facility) -> void:
 func _sell_condo(f: Facility) -> void:
 	f.sale_price = f.rent()
 	f.sold = true
-	econ.earn("condo", f.sale_price, "Appartamento venduto")
+	econ.earn("condo", f.sale_price, "Condominium sold")
 	for i in range(f.capacity()):
 		var s := engine.new_sim("condo", f.id, -1)
 		s.row = f.row
@@ -494,12 +496,12 @@ func _on_quarter_ended(quarter: int, year: int) -> void:
 
 	if events.pending_treasure:
 		events.pending_treasure = false
-		econ.earn_other(Rules.TREASURE_VALUE, "Tesoro nascosto")
+		econ.earn_other(Rules.TREASURE_VALUE, "Hidden treasure")
 
 	econ.close_quarter()
 	events.roll_quarter(quarter, year, tower.population())
 	_check_stars()
-	say("Trimestre chiuso. Bilancio: " + Economy.money(econ.last_quarter_balance))
+	say("Quarter closed. Balance: " + Economy.money(econ.last_quarter_balance))
 
 # --- stars -----------------------------------------------------------------
 
@@ -512,7 +514,7 @@ func _check_stars() -> void:
 		if not _needs_met(next["needs"]):
 			break
 		stars = int(next["stars"])
-		say("La torre e' salita a " + String(next["name"]) + "!")
+		say("Your tower has risen to " + String(next["name"]) + "!")
 		star_changed.emit(stars)
 
 func _needs_met(needs: Array) -> bool:
@@ -545,23 +547,23 @@ func _check_demands() -> void:
 		return
 	var need_sec := pop / Rules.SECURITY_PER_POPULATION
 	if tower.count_of_type("security") < need_sec:
-		say("La torre ha bisogno di piu' sicurezza.")
+		say("The tower needs more security.")
 		return
 	var need_rec := pop / Rules.RECYCLING_PER_POPULATION
 	if stars >= 3 and tower.count_of_type("recycling") < need_rec:
-		say("Serve un centro di riciclaggio.")
+		say("The tower needs a recycling centre.")
 		return
 	var need_med := pop / Rules.MEDICAL_PER_POPULATION
 	if stars >= 3 and tower.count_of_type("medical") < need_med:
-		say("Serve un pronto soccorso.")
+		say("The tower needs a medical centre.")
 		return
 	var rooms := tower.count_of_kind(FacilityDB.Kind.HOTEL)
 	var keepers := tower.count_of_type("housekeeping") * 6
 	if rooms > keepers * Rules.ROOMS_PER_HOUSEKEEPER:
-		say("Non hai abbastanza personale per le pulizie.")
+		say("You do not have enough housekeeping staff.")
 		return
 	if tower.count_of_type("recycling") > 0 and not _recycling_served():
-		say("I centri di riciclaggio non sono serviti da un montacarichi.")
+		say("A recycling centre has no service elevator reaching it.")
 
 ## The manual: "Service elevators must stop at recycling centers."
 func _recycling_served() -> bool:
@@ -584,7 +586,7 @@ func can_use_tool(id: String) -> bool:
 func try_place(type: String, seg: int, row: int, drag_w: int = -1,
 		drag_top: int = -9999) -> Dictionary:
 	if not can_use_tool(type):
-		return _fail("Non ancora disponibile a questo livello")
+		return _fail("Not available at this star rating")
 	if FacilityDB.is_elevator(type):
 		return _place_shaft(type, seg, row, drag_top)
 	var limit := _limit_check(type)
@@ -597,8 +599,8 @@ func try_place(type: String, seg: int, row: int, drag_w: int = -1,
 	var total: int = int(chk["cost"]) + int(chk["floor_cost"])
 	if not econ.can_afford(total):
 		if econ.can_afford(int(chk["cost"])):
-			return _fail("Non hai i soldi per costruire il piano")
-		return _fail("Non hai i soldi per costruire")
+			return _fail("Not enough money to build floor")
+		return _fail("Not enough money for construction")
 	econ.spend_construction(total)
 	Audio.play("build", "background", -12.0)
 	var f := tower.place(type, seg, row, w)
@@ -636,30 +638,30 @@ func _place_shaft(type: String, seg: int, row: int, top: int) -> Dictionary:
 	var existing := tower.shaft_at(seg, row)
 	if existing != null and existing.type == type:
 		if existing.cars.size() >= FacilityDB.LIMITS["cars_per_shaft"]:
-			return _fail("Massimo %d cabine per vano" % FacilityDB.LIMITS["cars_per_shaft"])
+			return _fail("At most %d cars a shaft" % FacilityDB.LIMITS["cars_per_shaft"])
 		var cc: int = int(d["car_cost"])
 		if not econ.can_afford(cc):
-			return _fail("Non hai i soldi per un altra cabina")
+			return _fail("Not enough money for another car")
 		econ.spend_construction(cc)
 		existing.add_car(row)
 		tower.mark_dirty()
 		tower_changed.emit()
-		say("Cabina aggiunta  " + Economy.money(cc))
+		say("Car added  " + Economy.money(cc))
 		return {"ok": true, "reason": ""}
 
 	var chk := tower.check_place(type, seg, bottom, w)
 	if not chk["ok"]:
 		return _fail(String(chk["reason"]))
 	if t - bottom + 1 > int(d.get("max_span", 30)):
-		return _fail("Massimo %d piani" % int(d.get("max_span", 30)))
+		return _fail("At most %d floors" % int(d.get("max_span", 30)))
 	for r in range(bottom, t + 1):
 		if not tower.range_built(seg, r, w):
-			return _fail("Manca il piano " + FacilityDB.row_label(r))
+			return _fail("No floor at " + FacilityDB.row_label(r))
 		if not tower.range_free(seg, r, w):
-			return _fail("Occupato al piano " + FacilityDB.row_label(r))
+			return _fail("Floor " + FacilityDB.row_label(r) + " is occupied")
 	var cost: int = int(chk["cost"])
 	if not econ.can_afford(cost):
-		return _fail("Non hai i soldi per costruire")
+		return _fail("Not enough money for construction")
 	econ.spend_construction(cost)
 	var s := tower.place_shaft(type, seg, bottom, t)
 	say("%s  %s" % [d["name"], Economy.money(cost)])
@@ -670,28 +672,28 @@ func _limit_check(type: String) -> String:
 	match type:
 		"stairs", "escalator":
 			if tower.count_transport() >= FacilityDB.LIMITS["stairs_escalators"]:
-				return "Massimo %d scale e scale mobili" % FacilityDB.LIMITS["stairs_escalators"]
+				return "At most %d stairs and escalators" % FacilityDB.LIMITS["stairs_escalators"]
 		"fastfood", "restaurant", "shop":
 			if tower.count_retail() >= FacilityDB.LIMITS["retail"]:
-				return "Troppi esercizi commerciali"
+				return "Too many retail units"
 		"parking":
 			if tower.count_of_type("parking") >= FacilityDB.LIMITS["parking"]:
-				return "Troppi posti auto"
+				return "Too many parking spaces"
 		"medical":
 			if tower.count_of_type("medical") >= FacilityDB.LIMITS["medical"]:
-				return "Massimo %d pronto soccorso" % FacilityDB.LIMITS["medical"]
+				return "At most %d medical centres" % FacilityDB.LIMITS["medical"]
 		"security":
 			if tower.count_of_type("security") >= FacilityDB.LIMITS["security"]:
-				return "Massimo %d uffici sicurezza" % FacilityDB.LIMITS["security"]
+				return "At most %d security offices" % FacilityDB.LIMITS["security"]
 		"cinema", "party_hall":
 			if tower.count_venues() >= FacilityDB.LIMITS["venues"]:
-				return "Massimo %d sale" % FacilityDB.LIMITS["venues"]
+				return "At most %d theatres and halls" % FacilityDB.LIMITS["venues"]
 		"metro":
 			if tower.count_of_type("metro") >= FacilityDB.LIMITS["metro"]:
-				return "Una sola metropolitana"
+				return "Only one metro station"
 		"cathedral":
 			if tower.count_of_type("cathedral") >= FacilityDB.LIMITS["cathedral"]:
-				return "Una sola cattedrale"
+				return "Only one cathedral"
 	return ""
 
 func _fail(reason: String) -> Dictionary:
@@ -701,7 +703,7 @@ func _fail(reason: String) -> Dictionary:
 func try_bulldoze(seg: int, row: int) -> void:
 	var res := tower.bulldoze(seg, row)
 	if String(res.get("kind", "")) == "refuse":
-		say("Il cinema non si puo' demolire.")
+		say("The cinema cannot be demolished.")
 		return
 	if not res["ok"]:
 		return
@@ -709,10 +711,10 @@ func try_bulldoze(seg: int, row: int) -> void:
 	if String(res["kind"]) == "facility":
 		var refund: int = int(res.get("refund", 0))
 		if refund < 0:
-			econ.charge(-refund, "Appartamento restituito")
-		say("Demolito.")
+			econ.charge(-refund, "Condominium refunded")
+		say("Demolished.")
 	else:
-		say("Vano ascensore demolito.")
+		say("Elevator shaft demolished.")
 	tower_changed.emit()
 
 # --- explosions ------------------------------------------------------------
@@ -739,14 +741,14 @@ func _explode(seg: int, row: int) -> void:
 func change_movie(f: Facility, latest: bool) -> void:
 	var price: int = int(f.def()["movie_new"] if latest else f.def()["movie_classic"])
 	if not econ.can_afford(price):
-		say("Non hai i soldi per cambiare film.")
+		say("Not enough money to change the film.")
 		return
 	econ.spend_construction(price)
 	var pool := Names.MOVIES_NEW if latest else Names.MOVIES_CLASSIC
 	f.movie = pool[rng.randi() % pool.size()]
 	f.movie_is_new = latest
 	f.movie_since_quarter = _abs_quarter()
-	say("Ora in programmazione: " + f.movie)
+	say("Now showing: " + f.movie)
 
 # --- answers to dialogs ----------------------------------------------------
 
@@ -755,22 +757,22 @@ func answer(tag: String, yes: bool) -> void:
 		"fire_heli":
 			if yes:
 				if econ.can_afford(Rules.FIRE_HELICOPTER_COST):
-					econ.charge(Rules.FIRE_HELICOPTER_COST, "Elicottero antincendio")
+					econ.charge(Rules.FIRE_HELICOPTER_COST, "Fire helicopter")
 					events.call_helicopter()
 				else:
-					say("Non hai i soldi per l elicottero.")
+					say("Not enough money for the helicopter.")
 		"bomb_pay":
 			if yes:
 				var d := events.pay_terrorist()
 				if d > 0:
-					econ.charge(d, "Ricatto")
+					econ.charge(d, "Blackmail")
 			else:
-				say("Hai rifiutato. La sicurezza sta cercando la bomba.")
+				say("You refused. Security is searching for the bomb.")
 
 func claim_santa() -> void:
 	var gift := events.claim_santa()
 	if gift > 0:
-		econ.earn_other(gift, "Regalo di Babbo Natale")
+		econ.earn_other(gift, "A present from Santa")
 
 # --- save / load -----------------------------------------------------------
 
@@ -786,23 +788,23 @@ func save_game(path: String = "") -> bool:
 	}
 	var fh := FileAccess.open(p, FileAccess.WRITE)
 	if fh == null:
-		say("Salvataggio fallito.")
+		say("Could not save.")
 		return false
 	fh.store_string(JSON.stringify(d))
 	fh.close()
-	say("Partita salvata.")
+	say("Game saved.")
 	return true
 
 func load_game(path: String = "") -> bool:
 	var p := path if path != "" else save_path
 	if not FileAccess.file_exists(p):
-		say("Nessun salvataggio trovato.")
+		say("No saved game found.")
 		return false
 	var fh := FileAccess.open(p, FileAccess.READ)
 	var parsed = JSON.parse_string(fh.get_as_text())
 	fh.close()
 	if typeof(parsed) != TYPE_DICTIONARY:
-		say("Salvataggio danneggiato.")
+		say("That save file is damaged.")
 		return false
 	new_game()
 	var d: Dictionary = parsed
@@ -820,5 +822,5 @@ func load_game(path: String = "") -> bool:
 	engine.plan_day(clock.is_weekend(), clock.day_in_quarter)
 	tower_changed.emit()
 	star_changed.emit(stars)
-	say("Partita caricata.")
+	say("Game loaded.")
 	return true

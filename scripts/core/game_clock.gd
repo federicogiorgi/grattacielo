@@ -35,7 +35,7 @@ func clock_text() -> String:
 
 func date_text() -> String:
 	var d := "WE" if is_weekend() else "WD"
-	return "%s  T%d  Anno %d" % [d, quarter, year]
+	return "%s  Q%d  Year %d" % [d, quarter, year]
 
 ## Is this the very last night of the year? Santa only comes then.
 func is_last_night_of_year() -> bool:

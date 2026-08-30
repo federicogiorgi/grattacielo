@@ -119,25 +119,25 @@ func check_place(type: String, seg: int, row: int, w_override: int = -1,
 		h_override: int = -1) -> Dictionary:
 	var res := {"ok": false, "reason": "", "cost": 0, "floor_cost": 0}
 	if not FacilityDB.has_def(type):
-		res.reason = "Struttura sconosciuta"
+		res.reason = "Unknown structure"
 		return res
 	var d: Dictionary = FacilityDB.DEFS[type]
 	var w: int = w_override if w_override > 0 else int(d.get("w", 1))
 	var h: int = h_override if h_override > 0 else int(d.get("h", 1))
 
 	if seg < 0 or seg + w > COLS:
-		res.reason = "Fuori dal terreno"
+		res.reason = "Outside the lot"
 		return res
 	if row < FacilityDB.ROW_MIN or row + h - 1 > FacilityDB.ROW_MAX:
-		res.reason = "Fuori dal terreno"
+		res.reason = "Outside the lot"
 		return res
 
 	var ug: int = int(d.get("underground", 0))
 	if ug == -1 and row < 0:
-		res.reason = "Non si costruisce sottoterra"
+		res.reason = "Cannot be built underground"
 		return res
 	if ug == 1 and row + h - 1 >= 0:
-		res.reason = "Solo sottoterra"
+		res.reason = "Underground only"
 		return res
 
 	if FacilityDB.is_elevator(type):
@@ -148,33 +148,33 @@ func check_place(type: String, seg: int, row: int, w_override: int = -1,
 	# explicit that a floor "will extend to close the gap".
 	if type == "lobby":
 		if not is_sky_lobby_row(row):
-			res.reason = "Un atrio ogni 15 piani"
+			res.reason = "A lobby only every 15 floors"
 			return res
 		if row > 0 and not range_built(seg, row - 1, w):
-			res.reason = "Manca il piano sotto"
+			res.reason = "No floor underneath"
 			return res
 		var new_cells := 0
 		for c in range(seg, seg + w):
 			if structure_at(c, row) == LOBBY:
 				continue
 			if not cell_free(c, row):
-				res.reason = "Occupato"
+				res.reason = "Occupied"
 				return res
 			new_cells += 1
 		if new_cells == 0:
-			res.reason = "Atrio gia costruito"
+			res.reason = "Lobby already built here"
 			return res
 		res.ok = true
 		res.cost = int(d["cost"]) * new_cells
 		return res
 
 	if not has_lobby():
-		res.reason = "Costruisci prima un atrio"
+		res.reason = "Build a lobby first"
 		return res
 
 	if type == "floor":
 		if seg < lobby_left or seg + w - 1 > lobby_right:
-			res.reason = "Piu largo dell atrio"
+			res.reason = "Wider than the lobby"
 			return res
 		var gaps := 0
 		for c in range(seg, seg + w):
@@ -185,7 +185,7 @@ func check_place(type: String, seg: int, row: int, w_override: int = -1,
 				continue
 			gaps += 1
 		if gaps == 0:
-			res.reason = "Niente da colmare qui"
+			res.reason = "No gap to close here"
 			return res
 		res.ok = true
 		res.cost = int(d["cost"]) * gaps
@@ -193,12 +193,12 @@ func check_place(type: String, seg: int, row: int, w_override: int = -1,
 
 	# The ground floor is all lobby; only transport and ramps cut through it.
 	if row == 0 and type not in ["stairs", "escalator", "parking_ramp", "floor"]:
-		res.reason = "Il piano terra e' solo atrio"
+		res.reason = "The ground floor is lobby only"
 		return res
 
 	# Everything must sit inside the width of the lobby below it.
 	if seg < lobby_left or seg + w - 1 > lobby_right:
-		res.reason = "Piu' largo dell atrio"
+		res.reason = "Wider than the lobby"
 		return res
 
 	# Support: floors are held up from below, basements hang from above.
@@ -207,35 +207,35 @@ func check_place(type: String, seg: int, row: int, w_override: int = -1,
 			pass
 	if row > 0:
 		if not range_built(seg, row - 1, w):
-			res.reason = "Manca il piano sotto"
+			res.reason = "No floor underneath"
 			return res
 	elif row < 0:
 		if not range_built(seg, row + h, w):
-			res.reason = "Manca il piano sopra"
+			res.reason = "No floor above"
 			return res
 
 	# Multi-storey things need every one of their rows clear.
 	for r in range(row, row + h):
 		if not range_free(seg, r, w):
-			res.reason = "Occupato"
+			res.reason = "Occupied"
 			return res
 
 	if type == "escalator" and not _escalator_site_ok(seg, row):
-		res.reason = "Solo su aree commerciali o atri"
+		res.reason = "Commercial and public areas only"
 		return res
 	if type == "parking" and not _parking_has_ramp(row):
-		res.reason = "Serve prima una rampa su questo piano"
+		res.reason = "This floor needs a ramp first"
 		return res
 	if type == "parking_ramp" and not _ramp_column_ok(seg, row):
-		res.reason = "Una sola colonna di rampe, collegata all atrio"
+		res.reason = "One column of ramps only, joined to the lobby"
 		return res
 	if type == "cathedral":
 		if row + h - 1 != FacilityDB.ROW_MAX:
-			res.reason = "Solo in cima ai 100 piani"
+			res.reason = "Only on top of the hundredth floor"
 			return res
 	if type == "metro":
 		if _facilities_below(seg, row, w):
-			res.reason = "Niente puo' stare sotto la metropolitana"
+			res.reason = "Nothing may sit below the metro station"
 			return res
 
 	# Charge for the empty floor the facility needs under itself.
@@ -256,19 +256,19 @@ func _check_shaft(type: String, seg: int, bottom: int, _h: int) -> Dictionary:
 	var d: Dictionary = FacilityDB.DEFS[type]
 	var w: int = int(d["w"])
 	if not has_lobby():
-		res.reason = "Costruisci prima un atrio"
+		res.reason = "Build a lobby first"
 		return res
 	if seg < lobby_left or seg + w - 1 > lobby_right:
-		res.reason = "Piu' largo dell atrio"
+		res.reason = "Wider than the lobby"
 		return res
 	if shafts.size() >= FacilityDB.LIMITS["shafts"]:
-		res.reason = "Massimo %d vani ascensore" % FacilityDB.LIMITS["shafts"]
+		res.reason = "At most %d elevator shafts" % FacilityDB.LIMITS["shafts"]
 		return res
 	if not range_built(seg, bottom, w):
-		res.reason = "Manca il piano"
+		res.reason = "There is no floor here"
 		return res
 	if not range_free(seg, bottom, w):
-		res.reason = "Occupato"
+		res.reason = "Occupied"
 		return res
 	res.ok = true
 	res.cost = int(d["cost"]) + int(d["car_cost"])   # a shaft arrives with one car
@@ -393,19 +393,19 @@ func _unpaint_shaft(s: Shaft) -> void:
 ## Grow or shrink a shaft. Returns "" on success or a reason.
 func resize_shaft(s: Shaft, new_bottom: int, new_top: int) -> String:
 	if new_top < new_bottom:
-		return "Vano non valido"
+		return "That is not a valid shaft"
 	if new_top - new_bottom + 1 > s.max_span():
-		return "Massimo %d piani" % s.max_span()
+		return "At most %d floors" % s.max_span()
 	var w := s.width()
 	for r in range(new_bottom, new_top + 1):
 		if not s.covers_row(r):
 			if not range_built(s.seg, r, w):
-				return "Manca il piano " + FacilityDB.row_label(r)
+				return "No floor at " + FacilityDB.row_label(r)
 			if not range_free(s.seg, r, w):
-				return "Occupato al piano " + FacilityDB.row_label(r)
+				return "Floor " + FacilityDB.row_label(r) + " is occupied"
 	for c in s.cars:
 		if c.home_row < new_bottom or c.home_row > new_top:
-			return "Una cabina resterebbe fuori dal vano"
+			return "That would leave a car outside the shaft"
 	_unpaint_shaft(s)
 	s.bottom_row = new_bottom
 	s.top_row = new_top

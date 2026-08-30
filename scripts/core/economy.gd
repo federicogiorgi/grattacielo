@@ -124,5 +124,5 @@ static func money(n: int) -> String:
 		out = s[i] + out
 		c += 1
 		if c % 3 == 0 and i > 0:
-			out = "." + out
-	return ("-" if n < 0 else "") + "L. " + out
+			out = "," + out
+	return ("-" if n < 0 else "") + "$" + out

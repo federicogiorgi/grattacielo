@@ -1,7 +1,7 @@
 extends UIKit.GWindow
 class_name FindWindow
 
-## Trova persona: everyone you have named, and a button that scrolls the Edit
+## Find Person: everyone you have named, and a button that scrolls the Edit
 ## window to wherever they happen to be.
 
 signal locate(sim_id: int)
@@ -9,13 +9,13 @@ signal locate(sim_id: int)
 var list: ItemList
 
 func _init() -> void:
-	super("Trova persona")
+	super("Find Person")
 	list = ItemList.new()
 	list.custom_minimum_size = Vector2(200, 160)
 	body.add_child(list)
 	var row := HBoxContainer.new()
-	row.add_child(UIKit.button("Trova", _find))
-	row.add_child(UIKit.button("Chiudi", func(): hide()))
+	row.add_child(UIKit.button("Find", _find))
+	row.add_child(UIKit.button("Close", func(): hide()))
 	body.add_child(row)
 	visibility_changed.connect(func():
 		if visible:
@@ -30,7 +30,7 @@ func refresh() -> void:
 		var i := list.add_item(s.person_name)
 		list.set_item_metadata(i, sid)
 	if list.item_count == 0:
-		list.add_item("(nessuno -- usa Rinomina)")
+		list.add_item("(nobody yet -- use Rename)")
 		list.set_item_disabled(0, true)
 
 func _find() -> void:

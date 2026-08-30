@@ -145,11 +145,5 @@ func listen(game: Node) -> void:
 	game.econ.transaction.connect(func(_label: String, amount: int):
 		play("cash" if amount > 0 else "spend", "events", -12.0))
 	game.star_changed.connect(func(_s): play("fanfare", "events", -3.0))
-	game.events.announce.connect(func(text: String):
-		var low := text.to_lower()
-		if low.contains("incendio") or low.contains("bomba") or low.contains("terrorist"):
-			play("alarm", "events", -4.0)
-		elif low.contains("campanelli"):
-			play("bells", "events", -5.0)
-		elif low.contains("scarafaggi") or low.contains("non e' soddisfatto"):
-			play("bad", "events", -8.0))
+	game.events.cue.connect(func(name: String, gain: float):
+		play(name, "events", gain))

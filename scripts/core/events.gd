@@ -39,6 +39,9 @@ var wedding_done: bool = false
 signal announce(text: String)
 signal ask(question: String, tag: String)
 signal fire_changed()
+## Named sound to play, with a gain. Emitted rather than inferred from the
+## announcement text, which would break the moment the wording changed.
+signal cue(name: String, gain: float)
 
 func _init(p_tower: Tower) -> void:
 	tower = p_tower
@@ -74,7 +77,7 @@ func _has_underground_homes() -> bool:
 	return false
 
 func _treasure() -> void:
-	announce.emit("Scavando, gli operai hanno trovato un tesoro sepolto.")
+	announce.emit("Digging the foundations, the workmen found buried treasure.")
 	pending_treasure = true
 
 var pending_treasure: bool = false
@@ -107,8 +110,9 @@ func _start_terrorist() -> void:
 	var spot := _random_built_cell()
 	bomb.seg = spot.x
 	bomb.row = spot.y
-	ask.emit("Un terrorista minaccia di piazzare una bomba nella torre.\n"
-		+ "Chiede " + Economy.money(bomb.demand) + ". Vuoi pagare?", "bomb_pay")
+	cue.emit("alarm", -4.0)
+	ask.emit("A terrorist threatens to plant a bomb in your tower.\n"
+		+ "The demand is " + Economy.money(bomb.demand) + ". Pay up?", "bomb_pay")
 
 func _start_vip() -> void:
 	var suites := tower.all_of_type("hotel_suite")
@@ -117,7 +121,7 @@ func _start_vip() -> void:
 	var s: Facility = suites[rng.randi() % suites.size()]
 	vip_room = s.id
 	vip_visited = true
-	announce.emit("Un VIP e' arrivato nella tua torre.")
+	announce.emit("A VIP has arrived at your tower.")
 
 func _random_built_cell() -> Vector2i:
 	var tries := 0
@@ -145,8 +149,9 @@ func start_fire() -> void:
 	fire = Fire.new()
 	var spot := _random_built_cell()
 	fire.cells[spot] = 0.2
-	announce.emit("INCENDIO al piano " + FacilityDB.row_label(spot.y) + "!")
-	ask.emit("Vuoi chiamare l elicottero dei vigili del fuoco?\nCosta "
+	announce.emit("FIRE on floor " + FacilityDB.row_label(spot.y) + "!")
+	cue.emit("alarm", -4.0)
+	ask.emit("Do you want to call the emergency fire crew?\nIt will cost "
 		+ Economy.money(Rules.FIRE_HELICOPTER_COST) + ".", "fire_heli")
 	fire_changed.emit()
 
@@ -215,7 +220,7 @@ func _extinguish() -> void:
 	if fire == null:
 		return
 	fire.out = true
-	announce.emit("L incendio e' spento. Puoi ricostruire i piani distrutti.")
+	announce.emit("The fire is out. You can rebuild the floors it destroyed.")
 	fire = null
 
 func fire_active() -> bool:
@@ -229,7 +234,7 @@ func pay_terrorist() -> int:
 	var d := bomb.demand
 	bomb.paid = true
 	bomb = null
-	announce.emit("Hai pagato. Il terrorista sparisce.")
+	announce.emit("You paid. The terrorist disappears.")
 	return d
 
 ## Called every minute while a bomb is live. Security hunts it down.
@@ -247,14 +252,15 @@ func step_bomb(minute_of_day: int) -> Dictionary:
 		if rng.randf() < chance:
 			bomb.found = true
 			bomb.defused = true
-			announce.emit("La sicurezza ha trovato la bomba. Disinnescata.")
+			announce.emit("Security found the bomb and defused it.")
 			bomb = null
 			return out
 	if minute_of_day == Rules.BOMB_HOUR * 60:
 		out.exploded = true
 		out.seg = bomb.seg
 		out.row = bomb.row
-		announce.emit("La bomba e' esplosa al piano " + FacilityDB.row_label(bomb.row) + ".")
+		announce.emit("The bomb went off on floor " + FacilityDB.row_label(bomb.row) + ".")
+		cue.emit("wreck", -2.0)
 		bomb = null
 	return out
 
@@ -271,7 +277,8 @@ func update_santa(clock: GameClock, dt_seconds: float) -> void:
 			santa_claimed = false
 			santa_year = clock.year
 			santa_x = float(FacilityDB.MAP_SEGMENTS) + 20.0
-			announce.emit("Senti dei campanelli nel cielo...")
+			announce.emit("You hear sleigh bells somewhere in the sky...")
+			cue.emit("bells", -5.0)
 	if santa_active:
 		santa_x -= dt_seconds * 26.0
 		if santa_x < -40.0:
@@ -284,7 +291,8 @@ func claim_santa() -> int:
 	if not santa_active or santa_claimed:
 		return 0
 	santa_claimed = true
-	announce.emit("Babbo Natale ti lascia un regalo!")
+	announce.emit("Santa Claus leaves you a present!")
+	cue.emit("fanfare", -5.0)
 	return Rules.SANTA_GIFT
 
 func to_dict() -> Dictionary:

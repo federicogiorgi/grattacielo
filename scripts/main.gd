@@ -179,37 +179,37 @@ func _build_menus() -> void:
 	var file := MenuButton.new()
 	file.text = "File"
 	file.flat = false
-	file.get_popup().add_item("Nuova torre", 0)
-	file.get_popup().add_item("Carica", 1)
-	file.get_popup().add_item("Salva", 2)
+	file.get_popup().add_item("New Tower", 0)
+	file.get_popup().add_item("Open", 1)
+	file.get_popup().add_item("Save", 2)
 	file.get_popup().add_separator()
-	file.get_popup().add_item("Esci", 3)
+	file.get_popup().add_item("Quit", 3)
 	file.get_popup().id_pressed.connect(_file_menu)
 	row.add_child(file)
 
 	var wins := MenuButton.new()
-	wins.text = "Finestre"
-	wins.get_popup().add_item("Strumenti", 0)
-	wins.get_popup().add_item("Info", 1)
-	wins.get_popup().add_item("Mappa", 2)
-	wins.get_popup().add_item("Bilancio", 3)
-	wins.get_popup().add_item("Trova persona", 4)
+	wins.text = "Windows"
+	wins.get_popup().add_item("Tool Bar", 0)
+	wins.get_popup().add_item("Info Bar", 1)
+	wins.get_popup().add_item("Map Window", 2)
+	wins.get_popup().add_item("Finance Window", 3)
+	wins.get_popup().add_item("Find Person", 4)
 	wins.get_popup().id_pressed.connect(_windows_menu)
 	row.add_child(wins)
 
 	var opts := MenuButton.new()
 	options_menu = opts
-	opts.text = "Opzioni"
+	opts.text = "Options"
 	var op := opts.get_popup()
-	op.add_item("Chiama i vigili del fuoco", 0)
+	op.add_item("Call Fire Rescue", 0)
 	op.add_separator()
-	op.add_item("Zoom +", 1)
-	op.add_item("Zoom -", 2)
+	op.add_item("Zoom In", 1)
+	op.add_item("Zoom Out", 2)
 	op.add_separator()
 	# The manual's three independent sound toggles.
-	op.add_check_item("Suono: ascensori", 3)
-	op.add_check_item("Suono: ambiente", 4)
-	op.add_check_item("Suono: eventi", 5)
+	op.add_check_item("Sound: Elevators", 3)
+	op.add_check_item("Sound: Background", 4)
+	op.add_check_item("Sound: Events", 5)
 	op.set_item_checked(op.get_item_index(3), true)
 	op.set_item_checked(op.get_item_index(4), true)
 	op.set_item_checked(op.get_item_index(5), true)
@@ -291,7 +291,7 @@ func _options_menu(id: int) -> void:
 			if Game.events.fire_active():
 				Game.answer("fire_heli", true)
 			else:
-				Game.say("Non c e' nessun incendio.")
+				Game.say("There is no fire to put out.")
 		1: _zoom(1)
 		2: _zoom(-1)
 		3, 4, 5:
@@ -554,7 +554,7 @@ func _locate_sim(sid: int) -> void:
 	if s == null:
 		return
 	if s.state == Sim.State.OUTSIDE:
-		Game.say(s.display_name() + " non e' nella torre in questo momento.")
+		Game.say(s.display_name() + " is not in the tower right now.")
 		return
 	cam.position = Vector2(s.seg * Art.SEG_W, -float(s.row) * Art.ROW_H - 60.0)
 	_clamp_camera()
@@ -588,14 +588,14 @@ func _finger_press(c: Vector2i) -> void:
 		return
 	# Clicking a floor number in the shaft switches its service off.
 	if s.is_express():
-		Game.say("I piani di un ascensore espresso non si possono cambiare.")
+		Game.say("An express elevator's floors cannot be changed.")
 		return
 	var blocked := false
 	for car in s.cars:
 		if car.home_row == c.y:
 			blocked = true
 	if blocked:
-		Game.say("Non puoi togliere il servizio al piano di sosta di una cabina.")
+		Game.say("You cannot switch off service to a car's waiting floor.")
 		return
 	if s.disabled_rows.has(c.y):
 		s.disabled_rows.erase(c.y)

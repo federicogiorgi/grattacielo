@@ -16,10 +16,10 @@ var grid: CarGrid
 var show_btn: Button
 var info: Label
 
-const MODE_NAMES := ["Locale", "Espresso in cima", "Espresso in basso"]
+const MODE_NAMES := ["Local", "Express to top", "Express to bottom"]
 # Seven bands across one panel means the selector has to be narrow, so the
 # buttons carry the short form and the legend under them says what it means.
-const MODE_SHORT := ["Loc", "Cima", "Basso"]
+const MODE_SHORT := ["Local", "Top", "Bottom"]
 
 class CarGrid extends Control:
 	signal floor_toggled(row: int)
@@ -121,7 +121,7 @@ class CarGrid extends Control:
 		accept_event()
 
 func _init() -> void:
-	super("Ascensore")
+	super("Elevator")
 	var days := HBoxContainer.new()
 	wd_btn = UIKit.button("WD", func(): _set_day(false))
 	we_btn = UIKit.button("WE", func(): _set_day(true))
@@ -131,7 +131,7 @@ func _init() -> void:
 	days.add_child(we_btn)
 	body.add_child(days)
 
-	body.add_child(UIKit.label("Orario delle cabine", 12, UIKit.ACCENT))
+	body.add_child(UIKit.label("Car schedule", 12, UIKit.ACCENT))
 	band_row = HBoxContainer.new()
 	band_row.add_theme_constant_override("separation", 2)
 	body.add_child(band_row)
@@ -143,13 +143,13 @@ func _init() -> void:
 		col.add_child(UIKit.label("%02d-%02d" % [from_h, to_h], 10))
 		var ob := OptionButton.new()
 		ob.focus_mode = Control.FOCUS_NONE
-		ob.custom_minimum_size = Vector2(54, 22)
+		ob.custom_minimum_size = Vector2(70, 22)
 		ob.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		ob.clip_text = true
 		ob.add_theme_font_size_override("font_size", 10)
 		for n in MODE_SHORT:
 			ob.add_item(n)
-		ob.tooltip_text = "Locale, Espresso in cima, Espresso in basso"
+		ob.tooltip_text = "Local, Express to top, Express to bottom"
 		ob.item_selected.connect(_set_band.bind(i))
 		col.add_child(ob)
 		band_buttons.append(ob)
@@ -160,17 +160,17 @@ func _init() -> void:
 	body.add_child(settings)
 
 	var respc := VBoxContainer.new()
-	respc.add_child(UIKit.label("Risposta cabine ferme", 11))
+	respc.add_child(UIKit.label("Waiting car response", 11))
 	var rr := HBoxContainer.new()
 	rr.add_child(UIKit.button("-", func(): _resp(-1)))
-	resp_label = UIKit.label("5 piani", 12)
+	resp_label = UIKit.label("5 floors", 12)
 	rr.add_child(resp_label)
 	rr.add_child(UIKit.button("+", func(): _resp(1)))
 	respc.add_child(rr)
 	settings.add_child(respc)
 
 	var depc := VBoxContainer.new()
-	depc.add_child(UIKit.label("Attesa alla partenza", 11))
+	depc.add_child(UIKit.label("Standard floor departure", 11))
 	var dr := HBoxContainer.new()
 	dr.add_child(UIKit.button("-", func(): _dep(-5)))
 	dep_label = UIKit.label("0 s", 12)
@@ -180,17 +180,17 @@ func _init() -> void:
 	settings.add_child(depc)
 
 	body.add_child(UIKit.label(
-		"Loc = locale   Cima = espresso in cima   Basso = espresso in basso", 10,
+		"Local = stops on call   Top / Bottom = express in that direction", 10,
 		Color(0.35, 0.34, 0.32)))
 
-	body.add_child(UIKit.label("Piani e cabine", 12, UIKit.ACCENT))
+	body.add_child(UIKit.label("Floors and cars", 12, UIKit.ACCENT))
 	grid = CarGrid.new()
 	grid.floor_toggled.connect(_toggle_floor)
 	grid.home_set.connect(_set_home)
 	var holder := HBoxContainer.new()
 	holder.add_child(grid)
 	holder.add_child(UIKit.label(
-		"Clicca il numero del piano\nper togliere il servizio.\nClicca una colonna per\nmettere li la cabina in sosta.\nRotella per scorrere.", 10,
+		"Click a floor number to\nswitch its service off.\nClick a car's column to\npark that car on the floor.\nScroll with the wheel.", 10,
 		Color(0.35, 0.34, 0.32)))
 	body.add_child(holder)
 
@@ -200,7 +200,7 @@ func _init() -> void:
 	var bottom := HBoxContainer.new()
 	show_btn = UIKit.button("Show: On", _toggle_show)
 	bottom.add_child(show_btn)
-	bottom.add_child(UIKit.button("Aggiungi cabina", _add_car))
+	bottom.add_child(UIKit.button("Add car", _add_car))
 	bottom.add_child(UIKit.button("OK", func(): hide()))
 	body.add_child(bottom)
 
@@ -227,7 +227,7 @@ func refresh() -> void:
 	if s == null:
 		hide()
 		return
-	set_title("%s -- piani %s..%s" % [s.def()["name"],
+	set_title("%s -- floors %s to %s" % [s.def()["name"],
 		FacilityDB.row_label(s.bottom_row), FacilityDB.row_label(s.top_row)])
 	wd_btn.add_theme_stylebox_override("normal",
 		UIKit.panel_style(UIKit.BG_LIGHT if weekend_view else UIKit.GOLD))
@@ -238,14 +238,14 @@ func refresh() -> void:
 		band_buttons[i].select(clampi(modes[i], 0, 2))
 		band_buttons[i].disabled = s.is_express()
 	band_row.modulate = Color(1, 1, 1, 0.45) if s.is_express() else Color.WHITE
-	resp_label.text = "%d piani" % s.wait_response
+	resp_label.text = "%d floors" % s.wait_response
 	dep_label.text = "%d s" % s.floor_departure
 	show_btn.text = "Show: On" if s.show else "Show: Off"
 	grid.fit_to(s.cars.size())
-	info.text = "%d cabine, %d in attesa, %d a bordo" % [s.cars.size(),
+	info.text = "%d cars, %d waiting, %d aboard" % [s.cars.size(),
 		s.total_waiting(), s.riders_total()]
 	if s.is_express():
-		info.text += "   (ferma solo agli sky lobby)"
+		info.text += "   (stops at sky lobbies only)"
 	grid.queue_redraw()
 
 func _set_day(we: bool) -> void:
@@ -281,10 +281,10 @@ func _toggle_floor(row: int) -> void:
 		return
 	for c in s.cars:
 		if c.home_row == row:
-			Game.say("Non puoi togliere il servizio al piano di sosta di una cabina.")
+			Game.say("You cannot switch off service to a car's waiting floor.")
 			return
 	if s.is_express():
-		Game.say("I piani di un ascensore espresso non si possono cambiare.")
+		Game.say("An express elevator's floors cannot be changed.")
 		return
 	if s.disabled_rows.has(row):
 		s.disabled_rows.erase(row)
@@ -299,7 +299,7 @@ func _set_home(car: int, row: int) -> void:
 	if s == null or car >= s.cars.size():
 		return
 	if not s.serves_row(row):
-		Game.say("Quel piano non e' servito.")
+		Game.say("That floor has no service.")
 		return
 	s.cars[car].home_row = row
 	refresh()

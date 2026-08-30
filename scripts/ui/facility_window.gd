@@ -18,7 +18,7 @@ var occupants: ItemList
 var extra: VBoxContainer
 
 func _init() -> void:
-	super("Struttura")
+	super("Facility")
 	title_lbl = UIKit.label("", 15)
 	body.add_child(title_lbl)
 	status_lbl = UIKit.label("", 12)
@@ -35,7 +35,7 @@ func _init() -> void:
 
 	rent_row = HBoxContainer.new()
 	body.add_child(rent_row)
-	rent_row.add_child(UIKit.label("Affitto", 12))
+	rent_row.add_child(UIKit.label("Rent", 12))
 	rent_option = OptionButton.new()
 	rent_option.focus_mode = Control.FOCUS_NONE
 	rent_option.item_selected.connect(_on_rent)
@@ -71,23 +71,23 @@ func refresh() -> void:
 	if f == null:
 		hide()
 		return
-	set_title("Piano " + FacilityDB.row_label(f.row))
+	set_title("Floor " + FacilityDB.row_label(f.row))
 	title_lbl.text = f.title()
 	var d := f.def()
 
 	if f.wrecked:
-		status_lbl.text = "Distrutto"
+		status_lbl.text = "Destroyed"
 	elif f.roaches:
-		status_lbl.text = "Infestato dagli scarafaggi -- va demolito"
+		status_lbl.text = "Cockroach infestation -- must be demolished"
 	elif f.kind() == FacilityDB.Kind.CONDO:
-		status_lbl.text = "Venduto" if f.sold else "In vendita"
+		status_lbl.text = "Sold" if f.sold else "For sale"
 	elif f.kind() == FacilityDB.Kind.HOTEL:
-		status_lbl.text = ("Occupato" if not f.occupants.is_empty() else "Libero") \
-			+ ("  (da pulire)" if f.dirty else "")
+		status_lbl.text = ("Occupied" if not f.occupants.is_empty() else "Vacant") \
+			+ ("  (needs cleaning)" if f.dirty else "")
 	elif f.kind() in [FacilityDB.Kind.FOOD, FacilityDB.Kind.SHOP]:
-		status_lbl.text = "%d clienti oggi (%d abituali)" % [f.patrons_today, f.patrons]
+		status_lbl.text = "%d customers today (%d regulars)" % [f.patrons_today, f.patrons]
 	else:
-		status_lbl.text = "Occupato" if not f.occupants.is_empty() else "Libero"
+		status_lbl.text = "Occupied" if not f.occupants.is_empty() else "Vacant"
 
 	var q := f.quality / 300.0
 	var col := Rules.eval_colour(f.eval)
@@ -99,17 +99,17 @@ func refresh() -> void:
 	eval_gauge.set_gauge(q, col, cap)
 
 	var age: int = maxi(0, Game._abs_quarter() - f.built_quarter)
-	length_lbl.text = "In attivita da %d trimestr%s" % [age, "e" if age == 1 else "i"]
+	length_lbl.text = "Open for %d quarter%s" % [age, "" if age == 1 else "s"]
 
 	rent_row.visible = d.has("rents") and f.kind() != FacilityDB.Kind.CONDO or \
 		(f.kind() == FacilityDB.Kind.CONDO and not f.sold)
 	if d.has("rents"):
 		rent_option.clear()
-		var per := "/trim." if int(d["income"]) == FacilityDB.Income.QUARTERLY_RENT else ""
+		var per := "a quarter" if int(d["income"]) == FacilityDB.Income.QUARTERLY_RENT else ""
 		if int(d["income"]) == FacilityDB.Income.DAILY_RENT:
-			per = "/notte"
+			per = "a night"
 		if int(d["income"]) == FacilityDB.Income.ONE_TIME_SALE:
-			per = "prezzo"
+			per = "sale price"
 		for i in range(4):
 			rent_option.add_item("%s  %s %s" % [Rules.RENT_LABELS[i],
 				Economy.money(int(d["rents"][i])), per])
@@ -121,18 +121,18 @@ func refresh() -> void:
 	for c in extra.get_children():
 		c.queue_free()
 	if f.type == "cinema":
-		extra.add_child(UIKit.label("In programmazione: " + f.movie, 12))
-		extra.add_child(UIKit.label("Incasso di oggi: "
+		extra.add_child(UIKit.label("Now showing: " + f.movie, 12))
+		extra.add_child(UIKit.label("Today's takings: "
 			+ Economy.money(int(round(float(int(d["take"])) * float(f.patrons_today)
 			/ maxf(float(f.capacity()), 1.0)))), 12))
 		var hb := HBoxContainer.new()
-		hb.add_child(UIKit.button("Ultime uscite  " + Economy.money(int(d["movie_new"])),
+		hb.add_child(UIKit.button("Latest movies  " + Economy.money(int(d["movie_new"])),
 			func(): Game.change_movie(f, true); refresh()))
-		hb.add_child(UIKit.button("Classici  " + Economy.money(int(d["movie_classic"])),
+		hb.add_child(UIKit.button("The classics  " + Economy.money(int(d["movie_classic"])),
 			func(): Game.change_movie(f, false); refresh()))
 		extra.add_child(hb)
 	elif f.kind() == FacilityDB.Kind.FOOD:
-		extra.add_child(UIKit.label("Incasso di oggi: " + Economy.money(f.takings_today), 12))
+		extra.add_child(UIKit.label("Today's takings: " + Economy.money(f.takings_today), 12))
 
 	occupants.clear()
 	for sid in f.occupants:
@@ -146,25 +146,25 @@ func refresh() -> void:
 
 func _mood(f: Facility) -> String:
 	if f.wrecked:
-		return "Non c e' piu' niente qui. Puoi ricostruire."
+		return "There is nothing left here. You can rebuild."
 	if f.roaches:
-		return "Gli scarafaggi hanno preso possesso della stanza."
+		return "The cockroaches have taken the room."
 	match f.kind():
 		FacilityDB.Kind.FOOD:
 			match f.patron_rating():
-				Rules.Eval.A: return "Gli affari vanno benissimo."
-				Rules.Eval.B: return "Si tira avanti."
-				_: return "Nessuno riesce ad arrivare fin qui."
+				Rules.Eval.A: return "Business is booming."
+				Rules.Eval.B: return "We are getting by."
+				_: return "Nobody can get up here."
 		FacilityDB.Kind.SHOP:
 			match f.patron_rating():
-				Rules.Eval.A: return "Il negozio e' pieno di gente."
-				Rules.Eval.B: return "Gli affari sono discreti."
-				_: return "Cosi' non si va avanti. Il negoziante minaccia di andarsene."
+				Rules.Eval.A: return "The shop is full of people."
+				Rules.Eval.B: return "Trade is fair."
+				_: return "This cannot go on. The shopkeeper is threatening to leave."
 		_:
 			match f.eval:
-				Rules.Eval.A: return "Qui si sta benissimo."
-				Rules.Eval.B: return "Va abbastanza bene, ma si potrebbe fare di meglio."
-				_: return "Non se ne puo' piu' di aspettare gli ascensori."
+				Rules.Eval.A: return "It is a pleasure to be here."
+				Rules.Eval.B: return "Good enough, though it could be better."
+				_: return "We are sick of waiting for the elevators."
 	return ""
 
 func _on_rent(i: int) -> void:
@@ -172,7 +172,7 @@ func _on_rent(i: int) -> void:
 	if f == null:
 		return
 	if f.kind() == FacilityDB.Kind.CONDO and f.sold:
-		Game.say("Non puoi cambiare il prezzo di un appartamento venduto.")
+		Game.say("You cannot change the price of a sold condominium.")
 		return
 	f.rent_tier = i
 	if f.kind() == FacilityDB.Kind.CONDO:

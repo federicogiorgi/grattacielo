@@ -2,13 +2,13 @@ extends UIKit.GWindow
 class_name MapWindow
 
 ## The satellite view, with the four evaluation buttons across the top.
-## Edit shows the silhouette; Eval, Prezzi and Hotel colour it and pause the
+## Edit shows the silhouette; Eval, Pricing and Hotel colour it and pause the
 ## game, exactly as the original did.
 
 signal jump_to(seg: int, row: int)
 signal overlay_changed(mode: String)
 
-const MODES := [["edit", "Edit"], ["eval", "Eval"], ["price", "Prezzi"],
+const MODES := [["edit", "Edit"], ["eval", "Eval"], ["price", "Pricing"],
 	["hotel", "Hotel"]]
 
 var canvas: MapCanvas
@@ -107,7 +107,7 @@ class MapCanvas extends Control:
 			accept_event()
 
 func _init() -> void:
-	super("Mappa")
+	super("Map")
 	var row := HBoxContainer.new()
 	body.add_child(row)
 	for m in MODES:
@@ -118,7 +118,7 @@ func _init() -> void:
 	canvas = MapCanvas.new()
 	canvas.picked.connect(func(s, r): jump_to.emit(s, r))
 	body.add_child(canvas)
-	legend = UIKit.label("Vista dall alto della torre.", 11)
+	legend = UIKit.label("A satellite view of your tower.", 11)
 	body.add_child(legend)
 	_set_mode("edit")
 
@@ -131,10 +131,10 @@ func _set_mode(m: String) -> void:
 	# The three evaluation views pause the game, as they did in the original.
 	Game.hold_pause("map", m != "edit")
 	match m:
-		"eval": legend.text = "Blu ottimo, giallo discreto, rosso in crisi."
-		"price": legend.text = "Blu molto basso, verde basso, giallo medio, rosso alto."
-		"hotel": legend.text = "Rosso: camere sporche. Serve piu personale."
-		_: legend.text = "Vista dall alto della torre."
+		"eval": legend.text = "Blue excellent, yellow good, red in crisis."
+		"price": legend.text = "Blue very low, green low, yellow average, red high."
+		"hotel": legend.text = "Red: dirty rooms. You need more housekeeping."
+		_: legend.text = "A satellite view of your tower."
 	overlay_changed.emit("" if m == "edit" else m)
 	canvas.queue_redraw()
 

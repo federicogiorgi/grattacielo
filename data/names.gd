@@ -4,42 +4,42 @@ class_name Names
 ## Flavour text: the people who live in your tower and the films you show them.
 
 const FIRST := [
-	"Ada", "Bruno", "Carla", "Dario", "Elena", "Fabio", "Giulia", "Ivano",
-	"Lucia", "Marco", "Nadia", "Orso", "Paola", "Quirino", "Rita", "Sergio",
-	"Teresa", "Ugo", "Valeria", "Zeno", "Amedeo", "Bianca", "Cesare", "Delia",
-	"Enrico", "Franca", "Gino", "Ilaria", "Luigi", "Marta", "Nino", "Ornella",
+	"Ada", "Bruno", "Carla", "Derek", "Elena", "Frank", "Greta", "Ivan",
+	"Lucy", "Marco", "Nadia", "Oscar", "Paula", "Quentin", "Rita", "Sergio",
+	"Teresa", "Hugo", "Valerie", "Zeno", "Amos", "Bianca", "Cesar", "Delia",
+	"Enrico", "Fran", "Gene", "Hilary", "Louis", "Martha", "Nino", "Ornella",
 ]
 
 const LAST := [
-	"Rossi", "Bianchi", "Ferrari", "Russo", "Esposito", "Colombo", "Ricci",
-	"Marino", "Greco", "Bruno", "Gallo", "Conti", "De Luca", "Costa", "Giordano",
-	"Mancini", "Rizzo", "Lombardi", "Moretti", "Barbieri", "Fontana", "Santoro",
+	"Rossi", "White", "Ferrari", "Russo", "Esposito", "Colomb", "Rich",
+	"Marino", "Green", "Bruno", "Gallo", "Conti", "De Luca", "Costa", "Jordan",
+	"Mancini", "Rizzo", "Lombard", "Moretti", "Barber", "Fontana", "Santoro",
 ]
 
 const ROLES := {
-	"office": "Impiegato",
-	"condo": "Residente",
-	"hotel": "Ospite",
-	"shop": "Commesso",
-	"food": "Cliente",
-	"housekeeping": "Addetto pulizie",
-	"security": "Guardia",
-	"medical": "Medico",
-	"visitor": "Visitatore",
+	"office": "Office Worker",
+	"condo": "Resident",
+	"hotel": "Guest",
+	"shop": "Shop Assistant",
+	"food": "Customer",
+	"housekeeping": "Housekeeper",
+	"security": "Security Guard",
+	"medical": "Doctor",
+	"visitor": "Visitor",
 	"vip": "VIP",
 }
 
 const MOVIES_NEW := [
-	"Il vento del nord", "Ultima chiamata", "Diciotto piani", "Rosso cobalto",
-	"La grande discesa", "Vertigine", "Nove vite", "Il ladro di ascensori",
+	"The North Wind", "Last Call", "Eighteen Floors", "Cobalt Red",
+	"The Long Way Down", "Vertigo Hour", "Nine Lives", "The Elevator Thief",
 ]
 
 const MOVIES_CLASSIC := [
-	"Ladri di biciclette", "La dolce vita", "Il gattopardo", "Otto e mezzo",
-	"Roma citta aperta", "Il sorpasso", "Miracolo a Milano", "I soliti ignoti",
+	"The Bicycle Man", "The Sweet Life", "The Leopard", "Eight and a Half",
+	"Open City", "The Overtaking", "Miracle in Milan", "Persons Unknown",
 ]
 
-const WEATHER := ["sereno", "nuvoloso", "pioggia", "neve"]
+const WEATHER := ["clear", "cloudy", "rain", "snow"]
 
 static func random_name(rng: RandomNumberGenerator) -> String:
 	return "%s %s" % [FIRST[rng.randi() % FIRST.size()], LAST[rng.randi() % LAST.size()]]

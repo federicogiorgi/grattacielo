@@ -42,34 +42,34 @@ the whole table back, so a stray edit is caught rather than shipped.
 
 | Facility | Stars | Cost | Size (seg × floors) | Holds | Earns |
 |---|---|---|---|---|---|
-| Lobby | 1 | 5.000 / segment | 1 × 1 | — | — |
-| Empty floor | 1 | 500 / segment | 1 × 1 | — | — |
-| Stairs | 1 | 5.000 | 8 × 2 | 21 | — |
-| Escalator | 1 | 20.000 | 8 × 2 | 21 | −5.000/qtr |
-| Standard elevator | 1 | 200.000 + 80.000/car | 4 wide | 21/car | −10.000 each /qtr |
-| Service elevator | 2 | 100.000 + 50.000/car | 4 wide | 21/car | −10.000 each /qtr |
-| Express elevator | 3 | 400.000 + 150.000/car | 6 wide | 42/car | −20.000 each /qtr |
-| Office | 1 | 40.000 | 9 × 1 | 6 | rent, quarterly |
-| Condominium | 1 | 80.000 | 16 × 1 | 3 | sold once, refunded if they leave |
-| Single room | 2 | 20.000 | 4 × 1 | 1 | rent, nightly |
-| Twin room | 2 | 50.000 | 6 × 1 | 2 | rent, nightly |
-| Suite | 2 | 100.000 | 10 × 1 | 2 | rent, nightly |
-| Fast food | 1 | 100.000 | 16 × 1 | 30/day | by patron count |
-| Restaurant | 3 | 200.000 | 24 × 1 | 40/day | by patron count, doubled |
-| Retail shop | 3 | 100.000 | 12 × 1 | 25/day | rent, quarterly |
-| Party hall | 3 | 100.000 | 24 × 2 | 50 | per party |
-| Cinema | 3 | 500.000 | 31 × 2 | 120 | per screening |
-| Housekeeping | 2 | 50.000 | 15 × 1 | 6 staff | −10.000/qtr |
-| Security | 2 | 100.000 | 16 × 1 | 4 staff | −20.000/qtr |
-| Medical centre | 3 | 500.000 | 26 × 1 | — | — |
-| Recycling centre | 3 | 500.000 | 25 × 2 | — | −50.000/qtr |
-| Parking space | 2 | 3.000 | 8 × 1 | 1 car | — |
-| Parking ramp | 2 | 50.000 | 16 × 1 | — | −10.000/qtr |
-| Metro station | 4 | 1.000.000 | 30 × 3 | — | −100.000/qtr |
-| Cathedral | 5 | 3.000.000 | 28 × 4 | — | — |
+| Lobby | 1 | $5,000 / segment | 1 × 1 | — | — |
+| Empty floor | 1 | $500 / segment | 1 × 1 | — | — |
+| Stairs | 1 | $5,000 | 8 × 2 | 21 | — |
+| Escalator | 1 | $20,000 | 8 × 2 | 21 | −$5,000/qtr |
+| Standard elevator | 1 | $200,000 + $80,000/car | 4 wide | 21/car | −$10,000 each /qtr |
+| Service elevator | 2 | $100,000 + $50,000/car | 4 wide | 21/car | −$10,000 each /qtr |
+| Express elevator | 3 | $400,000 + $150,000/car | 6 wide | 42/car | −$20,000 each /qtr |
+| Office | 1 | $40,000 | 9 × 1 | 6 | rent, quarterly |
+| Condominium | 1 | $80,000 | 16 × 1 | 3 | sold once, refunded if they leave |
+| Single room | 2 | $20,000 | 4 × 1 | 1 | rent, nightly |
+| Twin room | 2 | $50,000 | 6 × 1 | 2 | rent, nightly |
+| Suite | 2 | $100,000 | 10 × 1 | 2 | rent, nightly |
+| Fast food | 1 | $100,000 | 16 × 1 | 30/day | by patron count |
+| Restaurant | 3 | $200,000 | 24 × 1 | 40/day | by patron count, doubled |
+| Retail shop | 3 | $100,000 | 12 × 1 | 25/day | rent, quarterly |
+| Party hall | 3 | $100,000 | 24 × 2 | 50 | per party |
+| Cinema | 3 | $500,000 | 31 × 2 | 120 | per screening |
+| Housekeeping | 2 | $50,000 | 15 × 1 | 6 staff | −$10,000/qtr |
+| Security | 2 | $100,000 | 16 × 1 | 4 staff | −$20,000/qtr |
+| Medical centre | 3 | $500,000 | 26 × 1 | — | — |
+| Recycling centre | 3 | $500,000 | 25 × 2 | — | −$50,000/qtr |
+| Parking space | 2 | $3,000 | 8 × 1 | 1 car | — |
+| Parking ramp | 2 | $50,000 | 16 × 1 | — | −$10,000/qtr |
+| Metro station | 4 | $1,000,000 | 30 × 3 | — | −$100,000/qtr |
+| Cathedral | 5 | $3,000,000 | 28 × 4 | — | — |
 
-Changing a film costs 300.000 for a new release and 150.000 for a classic. The
-fire helicopter costs 500.000. You start with 2.000.000.
+Changing a film costs $300,000 for a new release and $150,000 for a classic.
+The fire helicopter costs $500,000. You start with $2,000,000.
 
 ### Star ratings
 
@@ -77,10 +77,10 @@ fire helicopter costs 500.000. You start with 2.000.000.
 |---|---|---|
 | 1 star | — | — |
 | 2 stars | 300 | — |
-| 3 stars | 1.000 | a security office |
-| 4 stars | 5.000 | two suites, a satisfied VIP, a medical centre, a recycling centre |
-| 5 stars | 10.000 | a metro station |
-| **GRATTACIELO** | 15.000 | a cathedral on floor 100 |
+| 3 stars | 1,000 | a security office |
+| 4 stars | 5,000 | two suites, a satisfied VIP, a medical centre, a recycling centre |
+| 5 stars | 10,000 | a metro station |
+| **TOWER** | 15,000 | a cathedral on floor 100 |
 
 ### Caps
 
@@ -230,10 +230,8 @@ which builds a demonstration tower, runs it for six seconds and saves a picture.
 Things the sources did not settle, decided one way and written down so they can
 be changed:
 
-- **The interface is in Italian.** The game is called Grattacielo; it seemed
-  the right register. Every string is in `data/` and `scripts/ui/`.
-- **Money is written `L. 1.234.567`.** Flavour, nothing more — the amounts are
-  the original's exactly.
+- **Only the title is Italian.** Everything on screen is in English, and every
+  string lives in `data/` and `scripts/ui/` if you ever want it otherwise.
 - **Parking unlocks at two stars**, following the manual's tutorial, where the
   parking tools appear alongside the other two-star facilities. One reference
   table puts it at three.

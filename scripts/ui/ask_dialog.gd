@@ -11,13 +11,13 @@ var tag: String = ""
 var queue: Array = []
 
 func _init() -> void:
-	super("Avviso", false)
+	super("Notice", false)
 	text_lbl = UIKit.label("", 13)
 	text_lbl.custom_minimum_size = Vector2(320, 0)
 	text_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_child(text_lbl)
 	var row := HBoxContainer.new()
-	yes_btn = UIKit.button("Si", func(): _answer(true))
+	yes_btn = UIKit.button("Yes", func(): _answer(true))
 	no_btn = UIKit.button("No", func(): _answer(false))
 	yes_btn.custom_minimum_size = Vector2(70, 26)
 	no_btn.custom_minimum_size = Vector2(70, 26)

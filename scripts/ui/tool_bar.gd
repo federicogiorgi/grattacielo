@@ -7,7 +7,8 @@ class_name ToolBar
 signal tool_picked(id: String)
 
 const MODES := ["inspect", "bulldoze", "finger"]
-const MODE_LABEL := {"inspect": "Lente", "bulldoze": "Ruspa", "finger": "Dito"}
+const MODE_LABEL := {"inspect": "Magnifying glass -- inspect anything",
+	"bulldoze": "Bulldozer -- demolish", "finger": "Finger -- stretch a shaft"}
 
 var buttons: Dictionary = {}
 var mode_buttons: Dictionary = {}
@@ -160,7 +161,7 @@ class ModeButton extends Button:
 			draw_rect(Rect2(1, 1, size.x - 2, size.y - 2), UIKit.GOLD, false, 2.0)
 
 func _init() -> void:
-	super("Strumenti", false)
+	super("Tools", false)
 	custom_minimum_size = Vector2(96, 0)
 	_build()
 
@@ -199,7 +200,7 @@ func _build() -> void:
 		var b := ToolButton.new(id)
 		var d: Dictionary = FacilityDB.DEFS[id]
 		b.tooltip_text = "%s\n%s\n%s" % [d["name"],
-			Economy.money(int(d["cost"])) + (" / segmento" if d.get("drag", "") == "h" else ""),
+			Economy.money(int(d["cost"])) + (" per segment" if d.get("drag", "") == "h" else ""),
 			d.get("desc", "")]
 		b.pressed.connect(_pick.bind(id))
 		grid.add_child(b)
@@ -220,7 +221,7 @@ func _speed(d: int) -> void:
 
 func _pick(id: String) -> void:
 	if not Game.can_use_tool(id):
-		Game.say("Non ancora disponibile a questo livello")
+		Game.say("Not available at this star rating")
 		return
 	current = id
 	mode = "build"

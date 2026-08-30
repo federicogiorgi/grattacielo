@@ -111,7 +111,7 @@ func _initialize() -> void:
 	while steps < 4000 and g.clock.year < 2:
 		g._process(0.25)
 		steps += 1
-	print("  after %d steps: %s %s  pop=%d  fondi=%s  stelle=%d"
+	print("  after %d steps: %s %s  pop=%d  funds=%s  stars=%d"
 		% [steps, g.clock.clock_text(), g.clock.date_text(),
 		g.tower.population(), Economy.money(g.econ.funds), g.stars])
 	_ok(g.tower.population() > 0, "somebody moved in")

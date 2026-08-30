@@ -82,5 +82,5 @@ func _report(g, h: int) -> void:
 	var shp := 0
 	for f in g.tower.all_of_kind(FacilityDB.Kind.SHOP):
 		shp += f.patrons_today
-	print("%02d:00  cammina %4d  in coda %4d  in ascensore %4d  fermi %4d  fuori %4d  stress %5.1f  pasti %3d  negozi %3d"
+	print("%02d:00  walking %4d  queueing %4d  riding %4d  at rest %4d  outside %4d  stress %5.1f  meals %3d  shoppers %3d"
 		% [h, walking, waiting, riding, resting, outside, stress / float(n), pat, shp])

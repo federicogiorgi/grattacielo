@@ -12,7 +12,7 @@ func ok(cond: bool, msg: String) -> void:
 		print("FAIL: ", msg)
 
 func _initialize() -> void:
-	print("--- regole ---")
+	print("--- rules ---")
 	_prices()
 	_sizes()
 	_stars()
@@ -144,8 +144,8 @@ func _economy() -> void:
 	e.earn("office", 10000)
 	ok(int(e.income["office"]) == 10000, "rent goes to its own line")
 	ok(e.net_revenue() == 10000 - 40000, "net revenue nets off")
-	ok(Economy.money(1234567) == "L. 1.234.567", "money reads with stops")
-	ok(Economy.money(-500) == "-L. 500", "and negatives keep their sign")
+	ok(Economy.money(1234567) == "$1,234,567", "money reads with commas")
+	ok(Economy.money(-500) == "-$500", "and negatives keep their sign")
 	# Fast food takings follow the customer count.
 	var f := Facility.new(1, "fastfood", 0, 1)
 	f.patrons_today = 10
