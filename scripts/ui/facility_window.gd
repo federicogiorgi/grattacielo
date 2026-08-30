@@ -118,8 +118,7 @@ func refresh() -> void:
 
 	message_lbl.text = _mood(f)
 
-	for c in extra.get_children():
-		c.queue_free()
+	UIKit.clear(extra)
 	if f.type == "cinema":
 		extra.add_child(UIKit.label("Now showing: " + f.movie, 12))
 		extra.add_child(UIKit.label("Today's takings: "

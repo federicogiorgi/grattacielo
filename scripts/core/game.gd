@@ -46,6 +46,9 @@ func _ready() -> void:
 	new_game()
 	set_process(true)
 
+func _exit_tree() -> void:
+	_teardown()
+
 func new_game() -> void:
 	_teardown()
 	tower = Tower.new()

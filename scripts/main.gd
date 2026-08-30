@@ -33,6 +33,7 @@ var finger_end: String = ""
 const ZOOMS := [0.55, 0.75, 1.0, 1.4]
 var zoom_index := 2
 var refresh_accum := 0.0
+var _last_view := Vector2.ZERO
 
 func _ready() -> void:
 	theme_res = UIKit.make_theme()
@@ -54,6 +55,9 @@ func _ready() -> void:
 	Game.ask_player.connect(func(q, t): ask_dialog.ask(q, t))
 	Game.tower_changed.connect(func(): pass)
 	Audio.listen(Game)
+	get_window().min_size = Vector2i(760, 520)
+	get_viewport().size_changed.connect(_layout)
+	_layout.call_deferred()
 	set_process(true)
 	set_process_unhandled_input(true)
 	_maybe_screenshot_mode()
@@ -306,8 +310,25 @@ func _options_menu(id: int) -> void:
 
 # --- per-frame -------------------------------------------------------------
 
+## Re-lay the interface for the current viewport. Called once at startup and
+## again whenever the window changes shape: the palette is capped to the height
+## available and every floating window is pulled back inside the frame.
+func _layout() -> void:
+	var vp := get_viewport_rect().size
+	_last_view = vp
+	info_bar.position = Vector2(112, 36)
+	tool_bar.position = Vector2(6, 126)
+	tool_bar.fit_height(vp.y - tool_bar.position.y - 10.0)
+	if map_window.size.x > 0.0 and map_window.position.x + map_window.size.x > vp.x - 8.0:
+		map_window.position.x = maxf(vp.x - map_window.size.x - 8.0, 160.0)
+	for w in [map_window, finance_window, facility_window, tenant_window,
+			elevator_window, find_window, ask_dialog]:
+		w.clamp_into(vp)
+
 func _process(delta: float) -> void:
 	_shot_tick(delta)
+	if get_viewport_rect().size != _last_view:
+		_layout()
 	_keyboard_pan(delta)
 	refresh_accum += delta
 	if refresh_accum > 0.1:

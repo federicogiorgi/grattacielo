@@ -1,4 +1,10 @@
-; Grattacielo -- a SimTower clone. Godot 4.7 / GDScript.
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
 
 config_version=5
 
@@ -9,23 +15,20 @@ run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
 
+[autoload]
+
+Game="*res://scripts/core/game.gd"
+Audio="*res://scripts/core/audio.gd"
+
 [display]
 
 window/size/viewport_width=1360
 window/size/viewport_height=800
 window/size/resizable=true
-window/stretch/mode="disabled"
-
-[rendering]
-
-renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.mobile="gl_compatibility"
-textures/canvas_textures/default_texture_filter=0
-anti_aliasing/quality/msaa_2d=0
-
-[physics]
-
-common/physics_ticks_per_second=60
+; canvas_items + expand: a smaller window scales everything down rather than
+; cropping it; a larger one scales up and shows a little more of the world.
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
 
 [input]
 
@@ -35,7 +38,8 @@ pause_toggle={
 ]
 }
 
-[autoload]
+[rendering]
 
-Game="*res://scripts/core/game.gd"
-Audio="*res://scripts/core/audio.gd"
+textures/canvas_textures/default_texture_filter=0
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

@@ -92,6 +92,13 @@ static func button(text: String, cb: Callable = Callable()) -> Button:
 		b.pressed.connect(cb)
 	return b
 
+## Empty a container NOW. queue_free() alone would leave the old children in
+## place for the rest of the frame, which doubles anything rebuilt per tick.
+static func clear(node: Node) -> void:
+	for c in node.get_children():
+		node.remove_child(c)
+		c.queue_free()
+
 static func hsep() -> HSeparator:
 	var s := HSeparator.new()
 	return s
@@ -181,6 +188,14 @@ class GWindow extends PanelContainer:
 			position = position.clamp(Vector2(-size.x + 60.0, 0.0),
 				get_viewport_rect().size - Vector2(60, 24))
 			accept_event()
+
+	## Keep the whole window inside the viewport, with the title bar reachable.
+	func clamp_into(view: Vector2) -> void:
+		var s := size
+		if s == Vector2.ZERO:
+			s = get_combined_minimum_size()
+		position.x = clampf(position.x, 0.0, maxf(view.x - s.x, 0.0))
+		position.y = clampf(position.y, 0.0, maxf(view.y - s.y, 0.0))
 
 	func open_at(p: Vector2) -> void:
 		position = p

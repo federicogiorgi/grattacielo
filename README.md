@@ -159,6 +159,14 @@ down**.
   and pause the game, as in the original.
 - Space pauses, `M` toggles the map, `F` the finance window.
 
+**The window can be any size.** The whole game is drawn through Godot's
+`canvas_items` stretch with `expand`, so a smaller window scales everything
+down rather than cropping it, and a larger one scales up and shows a little
+more of the world. The tool palette is three columns and scrolls, and every
+floating window is pulled back inside the frame whenever the window changes
+shape, so nothing can end up unreachable off an edge. The minimum window is
+760x520.
+
 Saving and loading are on the File menu; the save lives in Godot's `user://`
 directory.
 
