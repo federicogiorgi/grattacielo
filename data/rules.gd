@@ -22,6 +22,11 @@ const HOUR_SPEED := [
 	10.0, 12.0, 24.0, 24.0, 20.0, 10.0, 12.0, 16.0, 20.0, 24.0, 40.0, 80.0,
 ]
 
+## The whole clock was running twice as fast as it should. Rather than retune
+## twenty-four hand-set numbers, the curve keeps its shape and is halved here:
+## what used to be x0.5 is now x1, and every other setting follows.
+const CLOCK_SCALE := 0.5
+
 const DAY_START_MIN := 0
 const DAY_END_MIN := 24 * 60
 
@@ -157,7 +162,7 @@ static func stress_colour(s: float) -> Color:
 ## Minutes of game time that pass per real-time second at a given clock hour.
 static func speed_at(minute_of_day: int) -> float:
 	var h := clampi(minute_of_day / 60, 0, 23)
-	return HOUR_SPEED[h]
+	return HOUR_SPEED[h] * CLOCK_SCALE
 
 static func is_weekend(day_in_quarter: int) -> bool:
 	return day_in_quarter == WEEKEND_DAY

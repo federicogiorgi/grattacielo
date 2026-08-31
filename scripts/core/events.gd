@@ -273,23 +273,35 @@ func step_bomb(minute_of_day: int) -> Dictionary:
 # red dot crosses the sky. Centre on it and there is Santa in his sleigh, and
 # clicking on him pays out.
 
-func update_santa(clock: GameClock, dt_seconds: float) -> void:
+## Segments crossed per tower MINUTE. It used to be per real second, which
+## meant that at four times speed he was still crossing the sky at ten the
+## next morning -- the flight has to be measured in the same time as the rest
+## of the game or it does not stay inside its own night.
+const SANTA_SEGMENTS_PER_MIN := 1.6
+
+static func _is_night(clock: GameClock) -> bool:
+	var h := clock.hour()
+	return h >= 20 or h < 5
+
+func update_santa(clock: GameClock, dt_minutes: float) -> void:
 	if clock.is_last_night_of_year() and clock.hour() == Rules.SANTA_HOUR:
 		if not santa_active and santa_year != clock.year:
 			santa_active = true
 			santa_claimed = false
 			santa_year = clock.year
-			santa_x = float(FacilityDB.MAP_SEGMENTS) + 20.0
+			# He comes in from the west and flies east: the reindeer are drawn
+			# ahead of the sleigh, so travelling the other way had him going
+			# backwards across the sky with the team pushing.
+			santa_x = -60.0
 			announce.emit("You hear sleigh bells somewhere in the sky...")
 			cue.emit("bells", -5.0)
 	if santa_active:
-		# sleigh bells, every few seconds, while he crosses
-		_santa_jingle -= dt_seconds
+		_santa_jingle -= dt_minutes
 		if _santa_jingle <= 0.0:
-			_santa_jingle = 3.2
+			_santa_jingle = 45.0
 			cue.emit("sleigh", 0.0)
-		santa_x -= dt_seconds * 26.0
-		if santa_x < -40.0:
+		santa_x += dt_minutes * SANTA_SEGMENTS_PER_MIN
+		if santa_x > float(FacilityDB.MAP_SEGMENTS) + 60.0 or not _is_night(clock):
 			santa_active = false
 
 func santa_row() -> int:

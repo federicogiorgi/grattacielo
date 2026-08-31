@@ -196,7 +196,7 @@ func _process(delta: float) -> void:
 		var wrecked := events.step_fire(minf(dt, 6.0))
 		for f in wrecked:
 			_evict(f)
-	events.update_santa(clock, delta)
+	events.update_santa(clock, dt)
 
 func _on_minute(m: int) -> void:
 	if m % 60 == 0 and m >= 6 * 60 and m < 23 * 60 \
@@ -688,6 +688,12 @@ func try_place(type: String, seg: int, row: int, drag_w: int = -1,
 	if limit != "":
 		return _fail(limit)
 	var w: int = drag_w if drag_w > 0 else FacilityDB.size_of(type).x
+	if type == "floor":
+		# A storey is a storey. Building a floor lays the entire width the
+		# tower can support at that height, so the building stays a rectangle
+		# instead of growing spurs wherever you happened to drag.
+		seg = tower.lobby_left
+		w = tower.lobby_width()
 	var chk := tower.check_place(type, seg, row, w)
 	if not chk["ok"]:
 		return _fail(String(chk["reason"]))
@@ -696,8 +702,8 @@ func try_place(type: String, seg: int, row: int, drag_w: int = -1,
 		if econ.can_afford(int(chk["cost"])):
 			return _fail("Not enough money to build floor")
 		return _fail("Not enough money for construction")
-	econ.spend_construction(total)
 	Audio.play("build")
+	econ.spend_construction(total)
 	var f := tower.place(type, seg, row, w)
 	if f != null:
 		_after_place(f)

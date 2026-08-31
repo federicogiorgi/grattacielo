@@ -10,9 +10,11 @@ class_name ToolBar
 
 signal tool_picked(id: String)
 
-const MODES := ["inspect", "bulldoze", "finger"]
-const MODE_LABEL := {"inspect": "Magnifying glass -- inspect anything",
-	"bulldoze": "Bulldozer -- demolish", "finger": "Finger -- stretch a shaft"}
+# The finger tool is gone: you stretch a lift by dragging the lift, which is
+# what everybody tried first anyway.
+const MODES := ["inspect", "bulldoze"]
+const MODE_LABEL := {"inspect": "Magnifying glass -- inspect anything.\nDrag a lift shaft to make it taller or shorter.",
+	"bulldoze": "Bulldozer -- demolish"}
 
 const ICON := 44.0
 const COLUMNS := 3

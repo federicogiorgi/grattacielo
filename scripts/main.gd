@@ -28,8 +28,10 @@ var right_from := Vector2.ZERO   # where a right press started, to tell a click 
 var drag_start := Vector2i.ZERO
 var dragging := false
 var drag_placed: int = -999999
-var finger_shaft: int = -1
-var finger_end: String = ""
+var drag_shaft: int = -1
+var drag_shaft_top: bool = true
+var drag_shaft_moved: bool = false
+var drag_shaft_refusal: String = ""
 
 const ZOOMS := [0.55, 0.75, 1.0, 1.4]
 var zoom_index := 2
@@ -500,7 +502,10 @@ func _update_ghost() -> void:
 	var d := FacilityDB.get_def(t)
 	if d.is_empty():
 		return
-	if dragging and String(d.get("drag", "")) in ["h", "repeat"]:
+	if t == "floor" and Game.tower.has_lobby():
+		view.ghost_cell = Vector2i(Game.tower.lobby_left, c.y)
+		view.ghost_w = Game.tower.lobby_width()
+	elif dragging and String(d.get("drag", "")) in ["h", "repeat"]:
 		var lo := mini(drag_start.x, c.x)
 		var hi := maxi(drag_start.x, c.x)
 		view.ghost_cell = Vector2i(lo, drag_start.y)
@@ -529,10 +534,11 @@ func _press(c: Vector2i) -> void:
 			Game.try_bulldoze(c.x, c.y)
 			return
 		"inspect":
+			# A press on a lift starts a stretch; a press on anything else, or
+			# a press that never moves, inspects.
+			if _shaft_press(c):
+				return
 			_inspect(c)
-			return
-		"finger":
-			_finger_press(c)
 			return
 	# build
 	var t: String = Game.tool
@@ -545,8 +551,8 @@ func _press(c: Vector2i) -> void:
 	_place_at(c)
 
 func _drag(c: Vector2i) -> void:
-	if tool_bar.mode == "finger":
-		_finger_drag(c)
+	if drag_shaft != -1:
+		_shaft_drag(c)
 		return
 	if tool_bar.mode != "build" or not dragging:
 		return
@@ -563,10 +569,8 @@ func _drag(c: Vector2i) -> void:
 		_place_at(c)
 
 func _release(c: Vector2i) -> void:
-	if tool_bar.mode == "finger":
-		finger_shaft = -1
-		finger_end = ""
-		dragging = false
+	if drag_shaft != -1:
+		_shaft_release()
 		return
 	if not dragging:
 		return
@@ -661,59 +665,63 @@ func _jump_to(seg: int, row: int) -> void:
 	cam.position = Vector2(float(seg) * Art.SEG_W, -float(row) * Art.ROW_H)
 	_clamp_camera()
 
-# --- the finger tool -------------------------------------------------------
+# --- stretching a lift -----------------------------------------------------
+#
+# Press anywhere on a shaft and drag: the end you started nearest follows the
+# pointer. Release without moving and you get the control panel instead. This
+# replaces a dedicated tool whose only target was a ten-pixel motor room, and
+# which most people never found.
 
-func _finger_press(c: Vector2i) -> void:
+func _shaft_press(c: Vector2i) -> bool:
 	var s := Game.tower.shaft_at(c.x, c.y)
 	if s == null:
-		# The machinery sits just above the top and just below the bottom.
+		# the motor room above and the pit below are part of the shaft to grab
 		for sid in Game.tower.shafts:
 			var t: Shaft = Game.tower.shafts[sid]
-			if c.x >= t.seg and c.x < t.seg + t.width():
-				if c.y == t.top_row + 1:
-					finger_shaft = t.id
-					finger_end = "top"
-					dragging = true
-					return
-				if c.y == t.bottom_row - 1:
-					finger_shaft = t.id
-					finger_end = "bottom"
-					dragging = true
-					return
-		return
-	# Clicking a floor number in the shaft switches its service off.
-	if s.is_express():
-		Game.say("An express elevator's floors cannot be changed.")
-		return
-	var blocked := false
-	for car in s.cars:
-		if car.home_row == c.y:
-			blocked = true
-	if blocked:
-		Game.say("You cannot switch off service to a car's waiting floor.")
-		return
-	if s.disabled_rows.has(c.y):
-		s.disabled_rows.erase(c.y)
-	else:
-		s.disabled_rows[c.y] = true
-	Game.tower.mark_dirty()
-	Game.router.clear_cache()
+			if c.x >= t.seg and c.x < t.seg + t.width() \
+					and (c.y == t.top_row + 1 or c.y == t.bottom_row - 1):
+				s = t
+				break
+	if s == null:
+		return false
+	drag_shaft = s.id
+	# whichever end you grabbed nearest is the one that moves
+	drag_shaft_top = absi(c.y - s.top_row) <= absi(c.y - s.bottom_row)
+	drag_shaft_moved = false
+	drag_shaft_refusal = ""
+	dragging = true
+	return true
 
-func _finger_drag(c: Vector2i) -> void:
-	if finger_shaft == -1:
+func _shaft_drag(c: Vector2i) -> void:
+	if drag_shaft == -1:
 		return
-	var s: Shaft = Game.tower.shafts.get(finger_shaft)
+	var s: Shaft = Game.tower.shafts.get(drag_shaft)
 	if s == null:
 		return
 	var nb := s.bottom_row
 	var nt := s.top_row
-	if finger_end == "top":
+	if drag_shaft_top:
 		nt = maxi(c.y, s.bottom_row)
 	else:
 		nb = mini(c.y, s.top_row)
 	if nb == s.bottom_row and nt == s.top_row:
 		return
+	drag_shaft_moved = true
 	var err := Game.tower.resize_shaft(s, nb, nt)
-	if err != "":
+	# A drag is a hundred attempts, not one. Refusing each of them out loud
+	# would be a hundred buzzes a second, so the same refusal only speaks once.
+	if err == "":
+		drag_shaft_refusal = ""
+	elif err != drag_shaft_refusal:
+		drag_shaft_refusal = err
 		Audio.play("deny")
 		Game.say(err + " -- clear it before the shaft can pass")
+
+func _shaft_release() -> void:
+	if drag_shaft != -1 and not drag_shaft_moved:
+		Game.selected_shaft = drag_shaft
+		Game.selected_facility = -1
+		elevator_window.show_shaft(drag_shaft)
+	drag_shaft = -1
+	drag_shaft_moved = false
+	dragging = false

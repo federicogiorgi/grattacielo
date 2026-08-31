@@ -48,9 +48,7 @@ func _draw() -> void:
 	# The moon runs through its phases over eight days -- a year here is only
 	# twelve, so a real 29-day month would barely move. This way it is a
 	# different moon most nights, which is the point of drawing one.
-	var day_index := ((g.clock.year - 1) * Rules.QUARTERS_PER_YEAR
-		+ (g.clock.quarter - 1)) * Rules.DAYS_PER_QUARTER + g.clock.day_in_quarter
-	_draw_sky(view, minute, fposmod(float(day_index) / 8.0, 1.0))
+	_draw_sky(view, minute, moon_phase(g.clock))
 	_draw_ground(view)
 
 	var row_lo := maxi(int(floor(-view.end.y / Art.ROW_H)) - 1, FacilityDB.ROW_MIN)
@@ -67,6 +65,19 @@ func _draw() -> void:
 	_draw_ghost(g)
 
 # --- backdrop --------------------------------------------------------------
+
+## Where the moon is in its cycle, 0..1, for a given moment.
+##
+## The phase turns over at NOON, not at midnight. A night runs from one calendar
+## day into the next, so a midnight rollover changed the moon halfway through
+## the only hours anybody can see it -- a waxing crescent at eleven and a
+## gibbous at one, on what is to a player the same night.
+static func moon_phase(clock: GameClock) -> float:
+	var day_index := ((clock.year - 1) * Rules.QUARTERS_PER_YEAR
+		+ (clock.quarter - 1)) * Rules.DAYS_PER_QUARTER + clock.day_in_quarter
+	if clock.minute_of_day() >= 12 * 60:
+		day_index += 1
+	return fposmod(float(day_index) / 8.0, 1.0)
 
 func _draw_sky(view: Rect2, minute: int, moon_phase: float) -> void:
 	var sky := Art.sky_colour(minute)

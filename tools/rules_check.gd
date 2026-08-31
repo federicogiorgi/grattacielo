@@ -169,11 +169,69 @@ func _transport() -> void:
 	ok(not n.serves_row(5), "unless you switch that floor off")
 	ok(Rules.MAX_STAIR_FLIGHTS == 4, "nobody climbs more than four flights")
 	_climb_limits()
+	_floor_is_whole()
+	_shafts_stretch()
+	_moon_holds_all_night()
 	ok(Rules.SKY_LOBBY_EVERY == 15, "sky lobbies every fifteen floors")
 
 ## How far the legs alone will carry somebody. The manual gives two numbers
 ## for one journey -- four flights of stairs, seven escalator rides -- and both
 ## are checked by walking a tower rather than by reading the constant back.
+## A floor is the whole floor: the tower stays a rectangle rather than growing
+## spurs wherever the mouse happened to be dragged.
+func _floor_is_whole() -> void:
+	var g = load("res://scripts/core/game.gd").new()
+	root.add_child(g)
+	g.new_game()
+	g.try_place("lobby", 40, 0, 100)
+	# ask for eight segments in the middle and get all hundred
+	g.try_place("floor", 70, 1, 8)
+	var built := 0
+	for c in range(40, 140):
+		if g.tower.built(c, 1):
+			built += 1
+	ok(built == 100, "a floor lays the full width, got %d of 100" % built)
+	ok(not g.tower.built(39, 1) and not g.tower.built(140, 1),
+		"and stops at the edge of the lobby")
+
+## Dragging a shaft taller and shorter again. The finger tool that used to be
+## the only way in is gone; this is the operation behind the drag.
+func _shafts_stretch() -> void:
+	var g = load("res://scripts/core/game.gd").new()
+	root.add_child(g)
+	g.new_game()
+	g.try_place("lobby", 40, 0, 100)
+	for r in range(1, 12):
+		g.try_place("floor", 70, r, 8)
+	g.try_place("elevator", 60, 0, 0)
+	var s = g.tower.shaft_at(60, 0)
+	ok(s != null, "a shaft goes up")
+	ok(g.tower.resize_shaft(s, s.bottom_row, 9) == "", "and can be dragged taller")
+	ok(s.top_row == 9, "the top follows the pointer")
+	ok(g.tower.shaft_at(60, 9) != null, "and the new rows are shaft")
+	ok(g.tower.resize_shaft(s, s.bottom_row, 4) == "", "and dragged shorter again")
+	ok(g.tower.shaft_at(60, 9) == null, "the rows it gave up are free")
+	# past the top of the building there is nothing to run through
+	ok(g.tower.resize_shaft(s, s.bottom_row, 40) != "", "but not past the top floor")
+	ok(g.tower.resize_shaft(s, s.bottom_row, 200) != "", "nor past its own reach")
+
+## One night, one moon.
+func _moon_holds_all_night() -> void:
+	var g = load("res://scripts/core/game.gd").new()
+	root.add_child(g)
+	g.new_game()
+	var view = load("res://scripts/render/tower_view.gd")
+	g.clock.day_in_quarter = 5
+	g.clock.minute = 22.0 * 60.0
+	var evening: float = view.moon_phase(g.clock)
+	g.clock.minute = 2.0 * 60.0
+	g.clock.day_in_quarter = 6
+	ok(is_equal_approx(view.moon_phase(g.clock), evening),
+		"the moon keeps one face from dusk to dawn")
+	g.clock.minute = 13.0 * 60.0
+	ok(not is_equal_approx(view.moon_phase(g.clock), evening),
+		"and turns over in the afternoon, when nobody is looking")
+
 func _climb_limits() -> void:
 	var t := Tower.new()
 	var r := Router.new(t)

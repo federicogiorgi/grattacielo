@@ -21,8 +21,11 @@ const SFX := {
 	"doors":    {"file": "doors.ogg", "db": -18.0, "channel": "elevators"},
 	"cash":     {"file": "cash.ogg", "db": -14.0, "channel": "events"},
 	"spend":    {"file": "spend.ogg", "db": -17.0, "channel": "events"},
-	"build":    {"file": "build.ogg", "db": -12.0, "channel": "background"},
-	"wreck":    {"file": "wreck.ogg", "db": -11.0, "channel": "background"},
+	# Placing and demolishing are things YOU did, so they answer on the events
+	# channel. On "background" they were switched off with the city ambience
+	# and sat six decibels under the coin that plays at the same moment.
+	"build":    {"file": "build.ogg", "db": -6.0, "channel": "events"},
+	"wreck":    {"file": "wreck.ogg", "db": -7.0, "channel": "events"},
 	"click":    {"file": "click.ogg", "db": -15.0, "channel": "events"},
 	"deny":     {"file": "deny.ogg", "db": -13.0, "channel": "events"},
 	"bad":      {"file": "bad.ogg", "db": -11.0, "channel": "events"},

@@ -55,8 +55,10 @@ func _initialize() -> void:
 
 	var start_x: float = g.events.santa_x
 	for i in range(20):
-		g.events.update_santa(g.clock, 0.1)
-	_ok(g.events.santa_x < start_x, "the sleigh travels across the sky")
+		g.events.update_santa(g.clock, 1.0)
+	# West to east: the reindeer are drawn ahead of the sleigh, so travelling
+	# the other way had the team pushing him backwards across the sky.
+	_ok(g.events.santa_x > start_x, "the sleigh travels east across the sky")
 
 	# Clicking on him pays out, once.
 	var before: int = g.econ.funds
@@ -68,10 +70,18 @@ func _initialize() -> void:
 
 	# He leaves, and does not come back the same year.
 	for i in range(400):
-		g.events.update_santa(g.clock, 0.5)
+		g.events.update_santa(g.clock, 2.0)
 	_ok(not g.events.santa_active, "he flies off the edge of the map")
 	g.events.update_santa(g.clock, 0.1)
 	_ok(not g.events.santa_active, "and does not come round again this year")
+
+	# And he is gone by morning even if the clock is racing.
+	g.events.santa_active = true
+	g.events.santa_x = 100.0
+	g.clock.minute = 9.0 * 60.0
+	g.events.update_santa(g.clock, 1.0)
+	_ok(not g.events.santa_active, "and he never flies in daylight")
+	g.clock.minute = float(Rules.SANTA_HOUR) * 60.0 + 3.0
 
 	# Next year he does.
 	g.clock.year += 1
