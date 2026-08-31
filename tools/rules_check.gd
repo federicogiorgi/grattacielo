@@ -168,7 +168,36 @@ func _transport() -> void:
 	n.disabled_rows[5] = true
 	ok(not n.serves_row(5), "unless you switch that floor off")
 	ok(Rules.MAX_STAIR_FLIGHTS == 4, "nobody climbs more than four flights")
+	_climb_limits()
 	ok(Rules.SKY_LOBBY_EVERY == 15, "sky lobbies every fifteen floors")
+
+## How far the legs alone will carry somebody. The manual gives two numbers
+## for one journey -- four flights of stairs, seven escalator rides -- and both
+## are checked by walking a tower rather than by reading the constant back.
+func _climb_limits() -> void:
+	var t := Tower.new()
+	var r := Router.new(t)
+	t.place("lobby", 40, 0, 60)
+	for row in range(1, 12):
+		t.place("floor", 40, row, 60)
+	for row in range(0, 11):
+		t.place("stairs", 44, row)
+	ok(not r.find(0, 60.0, 4, 60.0).is_empty(),
+		"four flights up from the lobby is walkable")
+	ok(r.find(0, 60.0, 5, 60.0).is_empty(),
+		"the fifth is not, so a stair-only tower stops at four floors")
+
+	var t2 := Tower.new()
+	var r2 := Router.new(t2)
+	t2.place("lobby", 40, 0, 60)
+	for row in range(1, 12):
+		t2.place("floor", 40, row, 60)
+	for row in range(0, 11):
+		t2.place("escalator", 44, row)
+	ok(not r2.find(0, 60.0, 7, 60.0).is_empty(),
+		"seven escalator rides is walkable")
+	ok(r2.find(0, 60.0, 8, 60.0).is_empty(),
+		"the eighth is not")
 
 func _economy() -> void:
 	var e := Economy.new()
@@ -245,7 +274,10 @@ func _letting_timing() -> void:
 	ok(late == null or late.occupants.is_empty(),
 		"nothing is let after noon, however good the tower is")
 
-	_run_to(g, 21 * 60)
+	# Guests are booked in anywhere between six and ten, so the assertion has
+	# to sit after the last of them could arrive. Checking at nine passed most
+	# runs and failed the ones where the dice came up late.
+	_run_to(g, 23 * 60 + 30)
 	var room: Facility = g.tower.all_of_type("hotel_twin")[0]
 	ok(not room.occupants.is_empty(), "a room built today still takes guests tonight")
 

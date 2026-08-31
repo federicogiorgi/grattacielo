@@ -72,11 +72,13 @@ func _search(from_row: int, from_seg: float, to_row: int, to_seg: float,
 	var dist: Dictionary = {}
 	var prev: Dictionary = {}
 	var stairs_used: Dictionary = {}
+	var esc_used: Dictionary = {}
 	var heap := _Heap.new()
 
 	var start := _skey(0, from_row, start_seg, 0)
 	dist[start] = 0.0
 	stairs_used[start] = 0
+	esc_used[start] = 0
 	heap.push(0.0, start, {"kind": 0, "row": from_row, "ident": start_seg, "layer": 0})
 
 	var best_goal := -1
@@ -103,10 +105,18 @@ func _search(from_row: int, from_seg: float, to_row: int, to_seg: float,
 			var su: int = int(stairs_used.get(k, 0)) + int(e.get("stairs", 0))
 			if su > Rules.MAX_STAIR_FLIGHTS:
 				continue
+			# "People won't take escalators more than seven times during one
+			# passage to a tower site." The figure was in Rules from the start
+			# and nothing ever read it, so an escalator staircase of any height
+			# was walkable end to end.
+			var eu: int = int(esc_used.get(k, 0)) + int(e.get("esc", 0))
+			if eu > Rules.MAX_ESCALATOR_RIDES:
+				continue
 			if nd < float(dist.get(nk, INF)):
 				dist[nk] = nd
 				prev[nk] = {"from": k, "edge": e}
 				stairs_used[nk] = su
+				esc_used[nk] = eu
 				heap.push(nd, nk, e["node"])
 
 	if best_goal == -1:
@@ -216,6 +226,7 @@ func _edges(node: Dictionary, staff: bool, allow_stairs: bool) -> Array:
 					"leg": LEG_ESCALATOR if is_esc else LEG_STAIRS,
 					"id": int(t["id"]), "at_seg": tseg, "to_row": to_row,
 					"stairs": 0 if is_esc else 1,
+					"esc": 1 if is_esc else 0,
 					"node": {"kind": 0, "row": to_row, "ident": tseg, "layer": layer},
 				})
 	else:
