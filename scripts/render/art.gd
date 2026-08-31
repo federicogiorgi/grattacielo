@@ -4,6 +4,11 @@ class_name Art
 ## All the drawing. Flat shapes, dark outlines, a tight palette -- the same
 ## idea as the original's pixel art, done with primitives so the game carries
 ## no image files at all.
+##
+## Rooms are drawn as a shell (floor slab, back wall, ceiling) with furniture
+## on top. Stairs and escalators are the exception: they are STRUCTURE laid
+## over the floor, so they draw only their own geometry and leave everything
+## around them transparent -- you must be able to see the rooms behind them.
 
 const SEG_W := 8.0
 const ROW_H := 36.0
@@ -18,31 +23,33 @@ const EARTH_DARK := Color(0.22, 0.17, 0.12)
 const GRASS := Color(0.30, 0.46, 0.26)
 const CONCRETE := Color(0.72, 0.71, 0.66)
 const CONCRETE_DARK := Color(0.52, 0.51, 0.47)
+const GLASS := Color(0.72, 0.86, 0.94)
+const WARM := Color(0.99, 0.88, 0.55)
 
 # Per-facility colours: [body, trim, detail]
 const PALETTE := {
-	"lobby":            [Color(0.86, 0.83, 0.74), Color(0.62, 0.58, 0.48), Color(0.30, 0.46, 0.26)],
+	"lobby":            [Color(0.88, 0.85, 0.77), Color(0.60, 0.55, 0.45), Color(0.30, 0.46, 0.26)],
 	"floor":            [Color(0.60, 0.59, 0.56), Color(0.45, 0.44, 0.41), Color(0.35, 0.34, 0.32)],
-	"office":           [Color(0.80, 0.82, 0.86), Color(0.42, 0.48, 0.58), Color(0.96, 0.86, 0.52)],
-	"condo":            [Color(0.84, 0.74, 0.62), Color(0.52, 0.42, 0.34), Color(0.98, 0.88, 0.60)],
-	"hotel_single":     [Color(0.72, 0.66, 0.80), Color(0.44, 0.38, 0.54), Color(0.98, 0.90, 0.66)],
-	"hotel_twin":       [Color(0.68, 0.62, 0.80), Color(0.40, 0.34, 0.52), Color(0.98, 0.90, 0.66)],
-	"hotel_suite":      [Color(0.62, 0.54, 0.78), Color(0.34, 0.28, 0.48), Color(0.99, 0.93, 0.72)],
-	"fastfood":         [Color(0.92, 0.62, 0.34), Color(0.62, 0.34, 0.16), Color(0.99, 0.92, 0.70)],
-	"restaurant":       [Color(0.76, 0.30, 0.28), Color(0.46, 0.16, 0.16), Color(0.99, 0.90, 0.66)],
-	"shop":             [Color(0.40, 0.70, 0.62), Color(0.20, 0.44, 0.40), Color(0.98, 0.92, 0.74)],
-	"party_hall":       [Color(0.82, 0.52, 0.68), Color(0.50, 0.26, 0.40), Color(0.99, 0.90, 0.72)],
-	"cinema":           [Color(0.28, 0.26, 0.38), Color(0.16, 0.14, 0.24), Color(0.98, 0.86, 0.42)],
-	"housekeeping":     [Color(0.66, 0.74, 0.56), Color(0.38, 0.46, 0.30), Color(0.92, 0.94, 0.88)],
-	"security":         [Color(0.34, 0.44, 0.62), Color(0.18, 0.26, 0.42), Color(0.90, 0.94, 0.99)],
-	"medical":          [Color(0.92, 0.92, 0.94), Color(0.58, 0.60, 0.66), Color(0.84, 0.22, 0.20)],
-	"recycling":        [Color(0.44, 0.56, 0.42), Color(0.24, 0.34, 0.24), Color(0.68, 0.82, 0.56)],
-	"parking":          [Color(0.44, 0.43, 0.42), Color(0.28, 0.28, 0.27), Color(0.86, 0.86, 0.84)],
-	"parking_ramp":     [Color(0.38, 0.37, 0.36), Color(0.24, 0.24, 0.23), Color(0.90, 0.84, 0.42)],
-	"metro":            [Color(0.30, 0.34, 0.44), Color(0.16, 0.19, 0.26), Color(0.96, 0.78, 0.32)],
-	"cathedral":        [Color(0.84, 0.80, 0.70), Color(0.54, 0.50, 0.42), Color(0.42, 0.62, 0.84)],
-	"stairs":           [Color(0.66, 0.64, 0.60), Color(0.36, 0.35, 0.33), Color(0.86, 0.86, 0.84)],
-	"escalator":        [Color(0.58, 0.62, 0.68), Color(0.30, 0.34, 0.40), Color(0.92, 0.94, 0.96)],
+	"office":           [Color(0.82, 0.85, 0.89), Color(0.38, 0.45, 0.56), Color(0.96, 0.86, 0.52)],
+	"condo":            [Color(0.86, 0.76, 0.63), Color(0.50, 0.39, 0.31), Color(0.98, 0.88, 0.60)],
+	"hotel_single":     [Color(0.74, 0.68, 0.82), Color(0.42, 0.36, 0.53), Color(0.98, 0.90, 0.66)],
+	"hotel_twin":       [Color(0.70, 0.64, 0.82), Color(0.38, 0.32, 0.51), Color(0.98, 0.90, 0.66)],
+	"hotel_suite":      [Color(0.64, 0.56, 0.80), Color(0.32, 0.26, 0.47), Color(0.99, 0.93, 0.72)],
+	"fastfood":         [Color(0.94, 0.66, 0.36), Color(0.60, 0.32, 0.14), Color(0.99, 0.92, 0.70)],
+	"restaurant":       [Color(0.78, 0.32, 0.29), Color(0.44, 0.15, 0.15), Color(0.99, 0.90, 0.66)],
+	"shop":             [Color(0.42, 0.72, 0.64), Color(0.18, 0.42, 0.38), Color(0.98, 0.92, 0.74)],
+	"party_hall":       [Color(0.84, 0.54, 0.70), Color(0.48, 0.24, 0.38), Color(0.99, 0.90, 0.72)],
+	"cinema":           [Color(0.26, 0.24, 0.36), Color(0.14, 0.12, 0.22), Color(0.98, 0.86, 0.42)],
+	"housekeeping":     [Color(0.68, 0.76, 0.58), Color(0.36, 0.44, 0.28), Color(0.94, 0.95, 0.90)],
+	"security":         [Color(0.34, 0.44, 0.62), Color(0.16, 0.24, 0.40), Color(0.90, 0.94, 0.99)],
+	"medical":          [Color(0.93, 0.93, 0.95), Color(0.56, 0.58, 0.64), Color(0.84, 0.22, 0.20)],
+	"recycling":        [Color(0.45, 0.57, 0.43), Color(0.22, 0.32, 0.22), Color(0.70, 0.84, 0.58)],
+	"parking":          [Color(0.45, 0.44, 0.43), Color(0.27, 0.27, 0.26), Color(0.86, 0.86, 0.84)],
+	"parking_ramp":     [Color(0.39, 0.38, 0.37), Color(0.23, 0.23, 0.22), Color(0.90, 0.84, 0.42)],
+	"metro":            [Color(0.30, 0.34, 0.44), Color(0.15, 0.18, 0.25), Color(0.96, 0.78, 0.32)],
+	"cathedral":        [Color(0.86, 0.82, 0.72), Color(0.52, 0.48, 0.40), Color(0.42, 0.62, 0.84)],
+	"stairs":           [Color(0.70, 0.68, 0.64), Color(0.34, 0.33, 0.31), Color(0.88, 0.88, 0.86)],
+	"escalator":        [Color(0.60, 0.64, 0.70), Color(0.28, 0.32, 0.38), Color(0.93, 0.95, 0.97)],
 	"elevator":         [Color(0.30, 0.30, 0.32), Color(0.16, 0.16, 0.18), Color(0.80, 0.82, 0.86)],
 	"service_elevator": [Color(0.34, 0.24, 0.24), Color(0.20, 0.13, 0.13), Color(0.88, 0.70, 0.62)],
 	"express_elevator": [Color(0.20, 0.28, 0.42), Color(0.12, 0.17, 0.28), Color(0.66, 0.82, 0.98)],
@@ -84,6 +91,48 @@ static func is_dark(minute: int) -> bool:
 	return h < 6.0 or h >= 19.5
 
 # ---------------------------------------------------------------------------
+# Small drawing helpers
+# ---------------------------------------------------------------------------
+
+## Floor slab, back wall in two tones, and a ceiling line. Everything else in
+## a room is furniture standing on the slab.
+static func _shell(ci: CanvasItem, r: Rect2, wall: Color, floor_c: Color) -> void:
+	ci.draw_rect(r, wall)
+	# a slightly darker band at the top reads as the ceiling in shadow
+	ci.draw_rect(Rect2(r.position.x, r.position.y, r.size.x, r.size.y * 0.22),
+		wall.darkened(0.10))
+	ci.draw_rect(Rect2(r.position.x, r.end.y - 4, r.size.x, 4), floor_c)
+	ci.draw_line(Vector2(r.position.x, r.end.y - 4), Vector2(r.end.x, r.end.y - 4),
+		floor_c.darkened(0.25), 1.0)
+
+static func _lamp(ci: CanvasItem, at: Vector2, lit: bool, col: Color) -> void:
+	ci.draw_line(at + Vector2(0, -6), at, col.darkened(0.5), 1.0)
+	ci.draw_circle(at, 3.0, col if lit else col.darkened(0.5))
+	if lit:
+		ci.draw_circle(at, 6.0, Color(col.r, col.g, col.b, 0.16))
+
+static func _chair(ci: CanvasItem, x: float, base_y: float, ink: Color,
+		facing_right: bool = true) -> void:
+	var d := 1.0 if facing_right else -1.0
+	ci.draw_rect(Rect2(x - 3, base_y - 5, 6, 2), ink)
+	ci.draw_rect(Rect2(x - d * 3.0 - 1.0, base_y - 11, 2, 7), ink)
+	ci.draw_rect(Rect2(x - 1, base_y - 4, 2, 4), ink)
+
+static func _plant(ci: CanvasItem, x: float, base_y: float) -> void:
+	ci.draw_rect(Rect2(x - 4, base_y - 8, 8, 8), Color(0.58, 0.38, 0.26))
+	ci.draw_circle(Vector2(x, base_y - 12), 6.0, Color(0.24, 0.46, 0.24))
+	ci.draw_circle(Vector2(x - 4, base_y - 9), 4.0, Color(0.28, 0.52, 0.28))
+	ci.draw_circle(Vector2(x + 4, base_y - 9), 4.0, Color(0.28, 0.52, 0.28))
+
+static func _window(ci: CanvasItem, r: Rect2, lit: bool, mullions: int = 1) -> void:
+	ci.draw_rect(r, WARM if lit else GLASS.darkened(0.45))
+	ci.draw_rect(r, OUTLINE.lightened(0.25), false, 1.0)
+	for i in range(1, mullions + 1):
+		var x := r.position.x + r.size.x * float(i) / float(mullions + 1)
+		ci.draw_line(Vector2(x, r.position.y), Vector2(x, r.end.y),
+			OUTLINE.lightened(0.35), 1.0)
+
+# ---------------------------------------------------------------------------
 # Facilities
 # ---------------------------------------------------------------------------
 
@@ -91,6 +140,19 @@ static func draw_facility(ci: CanvasItem, f: Facility, minute: int,
 		eval_tint: Color = Color(0, 0, 0, 0)) -> void:
 	var r := cell_rect(f.seg, f.row, f.w, f.h)
 	var t := f.type
+
+	# Stairs and escalators sit ON the floor, so they paint themselves and
+	# nothing else. No card, no outline, no tint -- what is behind them stays
+	# visible, which is the whole point of drawing them at all.
+	if FacilityDB.kind_of(t) == FacilityDB.Kind.TRANSPORT:
+		if f.wrecked:
+			return
+		if t == "stairs":
+			_draw_stairs(ci, r, trim(t), detail(t))
+		else:
+			_draw_escalator(ci, r, trim(t), detail(t), minute)
+		return
+
 	var col := body(t)
 	var tr := trim(t)
 	var det := detail(t)
@@ -102,9 +164,7 @@ static func draw_facility(ci: CanvasItem, f: Facility, minute: int,
 	# Three states, and they must look different at a glance: to let (pale and
 	# bare), let but asleep (dark), and busy (lit).
 	if _vacant(f):
-		ci.draw_rect(r, Color(0.80, 0.79, 0.75))
-		ci.draw_rect(Rect2(r.position.x, r.end.y - 3, r.size.x, 3),
-			Color(0.60, 0.59, 0.55))
+		_shell(ci, r, Color(0.80, 0.79, 0.75), Color(0.62, 0.61, 0.57))
 		_to_let(ci, r)
 		ci.draw_rect(r, OUTLINE, false, 1.0)
 		return
@@ -114,37 +174,33 @@ static func draw_facility(ci: CanvasItem, f: Facility, minute: int,
 		tr = tr.darkened(0.24)
 		det = det.darkened(0.42)
 
-	ci.draw_rect(r, col)
 	match FacilityDB.kind_of(t):
 		FacilityDB.Kind.OFFICE:
-			_draw_office(ci, r, tr, det, lit)
+			_draw_office(ci, r, col, tr, det, lit)
 		FacilityDB.Kind.CONDO:
-			_draw_condo(ci, r, tr, det, lit)
+			_draw_condo(ci, r, col, tr, det, lit)
 		FacilityDB.Kind.HOTEL:
-			_draw_hotel(ci, r, tr, det, lit, f)
+			_draw_hotel(ci, r, col, tr, det, lit, f)
 		FacilityDB.Kind.FOOD:
-			_draw_food(ci, r, tr, det, lit, t == "restaurant")
+			_draw_food(ci, r, col, tr, det, lit, t == "restaurant")
 		FacilityDB.Kind.SHOP:
-			_draw_shop(ci, r, tr, det, lit)
+			_draw_shop(ci, r, col, tr, det, lit)
 		FacilityDB.Kind.VENUE:
 			if t == "cinema":
-				_draw_cinema(ci, r, tr, det, lit)
+				_draw_cinema(ci, r, col, tr, det, lit)
 			else:
-				_draw_party(ci, r, tr, det, lit)
+				_draw_party(ci, r, col, tr, det, lit)
 		FacilityDB.Kind.SERVICE:
-			_draw_service(ci, r, tr, det, t)
+			_draw_service(ci, r, col, tr, det, t)
 		FacilityDB.Kind.PARKING:
-			_draw_parking(ci, r, tr, det, t)
+			_draw_parking(ci, r, col, tr, det, t)
 		FacilityDB.Kind.CIVIC:
 			if t == "cathedral":
-				_draw_cathedral(ci, r, tr, det)
+				_draw_cathedral(ci, r, col, tr, det, lit)
 			else:
-				_draw_metro(ci, r, tr, det)
-		FacilityDB.Kind.TRANSPORT:
-			if t == "stairs":
-				_draw_stairs(ci, r, tr, det)
-			else:
-				_draw_escalator(ci, r, tr, det)
+				_draw_metro(ci, r, col, tr, det)
+		_:
+			ci.draw_rect(r, col)
 	if eval_tint.a > 0.0:
 		ci.draw_rect(r, eval_tint)
 	ci.draw_rect(r, OUTLINE, false, 1.0)
@@ -159,15 +215,22 @@ static func _vacant(f: Facility) -> bool:
 		_:
 			return false
 
-## An empty room waiting for a tenant: bare boards and a stripe of daylight.
+## An empty room waiting for a tenant: bare boards, a ladder and a paint tin.
 static func _to_let(ci: CanvasItem, r: Rect2) -> void:
 	var x := r.position.x + 6.0
 	while x < r.end.x - 6.0:
-		ci.draw_line(Vector2(x, r.position.y + 6), Vector2(x, r.end.y - 5),
-			Color(0.72, 0.71, 0.67), 1.0)
+		ci.draw_line(Vector2(x, r.position.y + 7), Vector2(x, r.end.y - 5),
+			Color(0.73, 0.72, 0.68), 1.0)
 		x += 9.0
-	ci.draw_rect(Rect2(r.position.x + 3, r.position.y + 5, r.size.x - 6, 3),
-		Color(0.88, 0.88, 0.85))
+	var lx := r.position.x + 8.0
+	ci.draw_line(Vector2(lx, r.end.y - 4), Vector2(lx + 6, r.position.y + 8),
+		Color(0.64, 0.55, 0.40), 1.5)
+	ci.draw_line(Vector2(lx + 7, r.end.y - 4), Vector2(lx + 13, r.position.y + 8),
+		Color(0.64, 0.55, 0.40), 1.5)
+	for i in range(3):
+		var yy := r.end.y - 8.0 - float(i) * 7.0
+		ci.draw_line(Vector2(lx + 2 + float(i) * 1.5, yy),
+			Vector2(lx + 9 + float(i) * 1.5, yy), Color(0.64, 0.55, 0.40), 1.0)
 
 static func _lit(f: Facility, minute: int) -> bool:
 	var h := float(minute) / 60.0
@@ -184,194 +247,435 @@ static func _lit(f: Facility, minute: int) -> bool:
 			return not f.occupants.is_empty() and h >= 10.0 and h < 21.0
 		FacilityDB.Kind.VENUE:
 			return h >= 12.0 and h < 23.5
+		FacilityDB.Kind.CIVIC:
+			return true
 		_:
 			return true
 
-static func _draw_office(ci: CanvasItem, r: Rect2, tr: Color, det: Color, lit: bool) -> void:
-	ci.draw_rect(Rect2(r.position.x, r.end.y - 3, r.size.x, 3), tr)
-	var n := 3
-	var pad := 5.0
-	var wdt := (r.size.x - pad * float(n + 1)) / float(n)
-	for i in range(n):
-		var x := r.position.x + pad + float(i) * (wdt + pad)
-		ci.draw_rect(Rect2(x, r.position.y + 7, wdt, r.size.y - 16),
-			det if lit else tr.darkened(0.2))
-	# a desk line
-	ci.draw_rect(Rect2(r.position.x + 3, r.end.y - 9, r.size.x - 6, 2), tr)
+# --- offices and homes -----------------------------------------------------
 
-static func _draw_condo(ci: CanvasItem, r: Rect2, tr: Color, det: Color, lit: bool) -> void:
-	ci.draw_rect(Rect2(r.position.x, r.end.y - 3, r.size.x, 3), tr)
-	# a window, a door, a plant
-	ci.draw_rect(Rect2(r.position.x + 6, r.position.y + 8, 22, 14), det if lit else tr)
-	ci.draw_rect(Rect2(r.position.x + 6, r.position.y + 8, 22, 14), tr, false, 1.0)
-	ci.draw_rect(Rect2(r.end.x - 26, r.position.y + 6, 12, r.size.y - 12), tr)
-	ci.draw_circle(Vector2(r.end.x - 8, r.end.y - 8), 4.0, Color(0.30, 0.50, 0.28))
+static func _draw_office(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
+		det: Color, lit: bool) -> void:
+	_shell(ci, r, col, tr)
+	var base := r.end.y - 4.0
+	var ink := tr.darkened(0.25)
+	# a strip light on the ceiling
+	ci.draw_rect(Rect2(r.position.x + 6, r.position.y + 3, r.size.x - 12, 2),
+		det if lit else tr)
+	# two desks facing each other, each with a monitor and a chair
+	for i in range(2):
+		var dx := r.position.x + 12.0 + float(i) * (r.size.x - 22.0)
+		ci.draw_rect(Rect2(dx - 9, base - 11, 18, 2.5), ink)
+		ci.draw_rect(Rect2(dx - 8, base - 9, 2, 9), ink)
+		ci.draw_rect(Rect2(dx + 6, base - 9, 2, 9), ink)
+		ci.draw_rect(Rect2(dx - 5, base - 20, 10, 8), det if lit else ink)
+		ci.draw_rect(Rect2(dx - 5, base - 20, 10, 8), ink, false, 1.0)
+		ci.draw_rect(Rect2(dx - 1.5, base - 12.5, 3, 1.5), ink)
+		_chair(ci, dx + (13.0 if i == 0 else -13.0), base, ink, i == 0)
+	# a filing cabinet against the back wall
+	ci.draw_rect(Rect2(r.end.x - 9, base - 17, 7, 17), ink)
+	for k in range(3):
+		ci.draw_line(Vector2(r.end.x - 9, base - 12.0 + float(k) * 5.0),
+			Vector2(r.end.x - 2, base - 12.0 + float(k) * 5.0), tr, 1.0)
 
-static func _draw_hotel(ci: CanvasItem, r: Rect2, tr: Color, det: Color, lit: bool,
-		f: Facility) -> void:
-	ci.draw_rect(Rect2(r.position.x, r.end.y - 3, r.size.x, 3), tr)
-	var bed_w := minf(r.size.x - 8.0, 18.0)
-	ci.draw_rect(Rect2(r.position.x + 4, r.end.y - 14, bed_w, 9),
-		det if lit else tr.darkened(0.2))
-	ci.draw_rect(Rect2(r.position.x + 4, r.end.y - 18, 6, 5), Color(0.95, 0.95, 0.95, 0.8))
+static func _draw_condo(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
+		det: Color, lit: bool) -> void:
+	_shell(ci, r, col, tr)
+	var base := r.end.y - 4.0
+	var ink := tr.darkened(0.2)
+	# window with curtains
+	var w := Rect2(r.position.x + 6, r.position.y + 8, 26, 15)
+	_window(ci, w, lit, 1)
+	ci.draw_rect(Rect2(w.position.x - 3, w.position.y - 2, 4, w.size.y + 3), tr)
+	ci.draw_rect(Rect2(w.end.x - 1, w.position.y - 2, 4, w.size.y + 3), tr)
+	# sofa, side table with a lamp, and a television
+	var sx := r.position.x + 44.0
+	ci.draw_rect(Rect2(sx, base - 9, 26, 9), tr)
+	ci.draw_rect(Rect2(sx, base - 15, 26, 7), tr.lightened(0.12))
+	ci.draw_rect(Rect2(sx - 3, base - 14, 4, 14), tr)
+	ci.draw_rect(Rect2(sx + 25, base - 14, 4, 14), tr)
+	_lamp(ci, Vector2(sx + 34, base - 16), lit, det)
+	ci.draw_rect(Rect2(sx + 34, base - 10, 2, 10), ink)
+	if r.size.x > 100.0:
+		ci.draw_rect(Rect2(r.end.x - 22, base - 20, 16, 12), ink)
+		ci.draw_rect(Rect2(r.end.x - 20, base - 18, 12, 8),
+			GLASS if lit else GLASS.darkened(0.55))
+		ci.draw_rect(Rect2(r.end.x - 16, base - 8, 4, 8), ink)
+	_plant(ci, r.position.x + 38, base)
+
+static func _draw_hotel(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
+		det: Color, lit: bool, f: Facility) -> void:
+	_shell(ci, r, col, tr)
+	var base := r.end.y - 4.0
+	var ink := tr.darkened(0.2)
+	var beds := 1 if f.type == "hotel_single" else 2
+	var bw: float = minf((r.size.x - 14.0) / float(beds) - 3.0, 20.0)
+	for i in range(beds):
+		var bx := r.position.x + 4.0 + float(i) * (bw + 4.0)
+		# headboard, mattress, pillow, blanket
+		ci.draw_rect(Rect2(bx, base - 20, 2.5, 18), ink)
+		ci.draw_rect(Rect2(bx, base - 10, bw, 8), Color(0.94, 0.93, 0.90))
+		ci.draw_rect(Rect2(bx + bw * 0.42, base - 10, bw * 0.58, 8), det.darkened(0.1))
+		ci.draw_rect(Rect2(bx + 1, base - 13, bw * 0.32, 4), Color(0.98, 0.98, 0.96))
+		ci.draw_rect(Rect2(bx, base - 2, bw, 2), ink)
+	# bedside lamp and, in a suite, a little armchair
+	var lx := r.position.x + 4.0 + float(beds) * (bw + 4.0) + 3.0
+	if lx < r.end.x - 8.0:
+		_lamp(ci, Vector2(lx + 3, base - 15), lit, det)
+		ci.draw_rect(Rect2(lx, base - 9, 7, 9), ink)
+	if f.type == "hotel_suite":
+		ci.draw_rect(Rect2(r.end.x - 16, base - 12, 12, 12), tr.lightened(0.15))
+		ci.draw_rect(Rect2(r.end.x - 16, base - 18, 12, 7), tr)
 	if f.roaches:
-		for i in range(4):
-			var x := r.position.x + 5.0 + float(i) * 7.0
-			ci.draw_circle(Vector2(x, r.end.y - 5), 2.0, Color(0.25, 0.15, 0.08))
+		for i in range(5):
+			var x := r.position.x + 6.0 + float(i) * (r.size.x - 12.0) / 4.0
+			ci.draw_circle(Vector2(x, base - 3), 2.2, Color(0.24, 0.14, 0.07))
+			ci.draw_line(Vector2(x - 3, base - 5), Vector2(x - 1, base - 3),
+				Color(0.24, 0.14, 0.07), 1.0)
+			ci.draw_line(Vector2(x + 3, base - 5), Vector2(x + 1, base - 3),
+				Color(0.24, 0.14, 0.07), 1.0)
 	elif f.dirty:
-		ci.draw_rect(Rect2(r.position.x + 2, r.position.y + 4, r.size.x - 4, 4),
-			Color(0.60, 0.48, 0.30, 0.75))
+		# an unmade bed and a service card on the door
+		ci.draw_rect(Rect2(r.position.x + 3, r.position.y + 5, r.size.x - 6, 4),
+			Color(0.62, 0.50, 0.30, 0.8))
 
-static func _draw_food(ci: CanvasItem, r: Rect2, tr: Color, det: Color, lit: bool,
-		posh: bool) -> void:
-	ci.draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 7), tr)
-	# an awning of stripes
-	var stripe := 6.0
+# --- trade -----------------------------------------------------------------
+
+static func _draw_food(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
+		det: Color, lit: bool, posh: bool) -> void:
+	_shell(ci, r, col, tr)
+	var base := r.end.y - 4.0
+	var ink := tr.darkened(0.2)
+	# a striped awning across the top
+	var stripe := 7.0
 	var x := r.position.x
 	var on := true
 	while x < r.end.x:
-		if on:
-			ci.draw_rect(Rect2(x, r.position.y, minf(stripe, r.end.x - x), 7),
-				det.darkened(0.1))
+		ci.draw_rect(Rect2(x, r.position.y, minf(stripe, r.end.x - x), 6),
+			det.darkened(0.05) if on else tr)
 		x += stripe
 		on = not on
-	# tables
-	var n := int(r.size.x / (28.0 if posh else 20.0))
+	ci.draw_rect(Rect2(r.position.x, r.position.y + 6, r.size.x, 1.5), ink)
+	if posh:
+		# tables with cloths, chairs either side, hanging lamps
+		var n := maxi(int(r.size.x / 46.0), 1)
+		for i in range(n):
+			var cx := r.position.x + (float(i) + 0.5) * r.size.x / float(n)
+			_lamp(ci, Vector2(cx, r.position.y + 14), lit, det)
+			ci.draw_rect(Rect2(cx - 11, base - 11, 22, 2.5), ink)
+			ci.draw_rect(Rect2(cx - 10, base - 9, 20, 7), Color(0.95, 0.94, 0.91))
+			ci.draw_rect(Rect2(cx - 1.5, base - 3, 3, 3), ink)
+			_chair(ci, cx - 15, base, ink, true)
+			_chair(ci, cx + 15, base, ink, false)
+	else:
+		# a counter with stools and a menu board
+		ci.draw_rect(Rect2(r.position.x + 4, base - 13, r.size.x * 0.42, 3), ink)
+		ci.draw_rect(Rect2(r.position.x + 4, base - 11, r.size.x * 0.42, 11),
+			tr.lightened(0.1))
+		ci.draw_rect(Rect2(r.position.x + 6, r.position.y + 9,
+			r.size.x * 0.34, 9), det if lit else ink)
+		var sx := r.position.x + r.size.x * 0.42 + 12.0
+		while sx < r.end.x - 6.0:
+			ci.draw_rect(Rect2(sx - 4, base - 9, 8, 2), ink)
+			ci.draw_rect(Rect2(sx - 1, base - 7, 2, 7), ink)
+			sx += 14.0
+
+static func _draw_shop(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
+		det: Color, lit: bool) -> void:
+	_shell(ci, r, col, tr)
+	var base := r.end.y - 4.0
+	var ink := tr.darkened(0.2)
+	# fascia sign
+	ci.draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 7), tr)
+	ci.draw_rect(Rect2(r.position.x + 3, r.position.y + 2, r.size.x - 6, 3),
+		det if lit else tr.lightened(0.15))
+	# a display window with goods on shelves
+	var w := Rect2(r.position.x + 4, r.position.y + 11, r.size.x * 0.52, base - r.position.y - 13)
+	ci.draw_rect(w, WARM.lerp(col, 0.35) if lit else col.darkened(0.25))
+	ci.draw_rect(w, ink, false, 1.0)
+	for k in range(2):
+		var sy := w.position.y + 7.0 + float(k) * 11.0
+		if sy > w.end.y - 3.0:
+			break
+		ci.draw_line(Vector2(w.position.x + 2, sy), Vector2(w.end.x - 2, sy), ink, 1.0)
+		for j in range(3):
+			ci.draw_rect(Rect2(w.position.x + 4.0 + float(j) * 12.0, sy - 5, 6, 5),
+				det.darkened(0.15))
+	# counter and a shopkeeper's stool
+	ci.draw_rect(Rect2(w.end.x + 6, base - 12, r.end.x - w.end.x - 10, 3), ink)
+	ci.draw_rect(Rect2(w.end.x + 6, base - 10, r.end.x - w.end.x - 10, 10),
+		tr.lightened(0.1))
+
+# --- venues ----------------------------------------------------------------
+
+static func _draw_party(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
+		det: Color, lit: bool) -> void:
+	_shell(ci, r, col, tr)
+	var base := r.end.y - 4.0
+	var ink := tr.darkened(0.2)
+	# a chandelier
+	var c := Vector2(r.get_center().x, r.position.y + 16)
+	ci.draw_line(Vector2(c.x, r.position.y), c, ink, 1.5)
+	ci.draw_circle(c, 7.0, det if lit else ink)
+	for i in range(5):
+		var a := PI + float(i) * PI / 4.0
+		ci.draw_circle(c + Vector2(cos(a), -sin(a)) * 11.0, 2.5, det if lit else ink)
+	# round tables with cloths
+	var n := maxi(int(r.size.x / 60.0), 2)
 	for i in range(n):
-		var cx := r.position.x + 12.0 + float(i) * (28.0 if posh else 20.0)
-		if cx > r.end.x - 6:
-			break
-		ci.draw_rect(Rect2(cx - 6, r.end.y - 13, 12, 2), tr)
-		ci.draw_rect(Rect2(cx - 1, r.end.y - 11, 2, 8), tr)
-		if lit:
-			ci.draw_circle(Vector2(cx, r.end.y - 16), 2.5, det)
-	ci.draw_rect(Rect2(r.position.x, r.end.y - 3, r.size.x, 3), tr)
+		var tx := r.position.x + (float(i) + 0.5) * r.size.x / float(n)
+		ci.draw_rect(Rect2(tx - 13, base - 14, 26, 3), ink)
+		ci.draw_colored_polygon(PackedVector2Array([
+			Vector2(tx - 13, base - 12), Vector2(tx + 13, base - 12),
+			Vector2(tx + 9, base), Vector2(tx - 9, base)]),
+			Color(0.96, 0.95, 0.92))
+	# balloons at the corners
+	for sx in [r.position.x + 10.0, r.end.x - 10.0]:
+		for k in range(2):
+			var bx: float = sx + float(k) * 7.0 - 3.0
+			ci.draw_circle(Vector2(bx, r.position.y + 26.0 + float(k) * 4.0), 4.5, det)
+			ci.draw_line(Vector2(bx, r.position.y + 30.0 + float(k) * 4.0),
+				Vector2(bx + 1, base), ink, 1.0)
 
-static func _draw_shop(ci: CanvasItem, r: Rect2, tr: Color, det: Color, lit: bool) -> void:
-	ci.draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 6), tr)
-	ci.draw_rect(Rect2(r.position.x + 4, r.position.y + 9, r.size.x - 8, r.size.y - 16),
-		det if lit else tr.darkened(0.15))
-	ci.draw_rect(Rect2(r.position.x + 4, r.position.y + 9, r.size.x - 8, r.size.y - 16),
-		tr, false, 1.0)
-	ci.draw_rect(Rect2(r.position.x, r.end.y - 3, r.size.x, 3), tr)
-
-static func _draw_cinema(ci: CanvasItem, r: Rect2, tr: Color, det: Color, lit: bool) -> void:
-	ci.draw_rect(r, Color(0.16, 0.15, 0.22))
-	# the screen
-	var sc := Rect2(r.position.x + 8, r.position.y + 8, r.size.x * 0.35, r.size.y * 0.5)
-	ci.draw_rect(sc, det if lit else Color(0.30, 0.30, 0.34))
-	ci.draw_rect(sc, tr, false, 1.0)
-	# rows of seats
+static func _draw_cinema(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
+		det: Color, lit: bool) -> void:
+	ci.draw_rect(r, Color(0.15, 0.14, 0.20))
+	var base := r.end.y - 4.0
+	# the marquee across the top
+	ci.draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 8), tr)
+	for i in range(int(r.size.x / 12.0)):
+		ci.draw_circle(Vector2(r.position.x + 7.0 + float(i) * 12.0, r.position.y + 4),
+			2.0, det if lit else det.darkened(0.6))
+	# the screen, and the projector beam when the lights are down
+	var sc := Rect2(r.position.x + 10, r.position.y + 16, r.size.x * 0.34, r.size.y * 0.42)
+	ci.draw_rect(sc, Color(0.90, 0.90, 0.88) if lit else Color(0.26, 0.26, 0.30))
+	ci.draw_rect(sc, Color(0.55, 0.54, 0.58), false, 1.5)
+	if lit:
+		ci.draw_colored_polygon(PackedVector2Array([
+			Vector2(r.end.x - 14, r.position.y + 20), sc.end,
+			Vector2(sc.end.x, sc.position.y)]), Color(0.98, 0.96, 0.80, 0.10))
+	# raked rows of seats
 	for row in range(4):
-		var y := r.position.y + r.size.y * 0.62 + float(row) * 5.0
-		if y > r.end.y - 4:
+		var y := base - 6.0 - float(row) * 7.0
+		if y < sc.end.y:
 			break
-		for i in range(int(r.size.x / 9.0)):
-			ci.draw_rect(Rect2(r.position.x + 6.0 + float(i) * 9.0, y, 6, 3),
-				Color(0.42, 0.20, 0.22))
-	# the marquee
-	ci.draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 5),
-		det if lit else det.darkened(0.6))
+		for i in range(int(r.size.x / 11.0)):
+			var x := r.position.x + 8.0 + float(i) * 11.0 + float(row) * 2.0
+			if x > r.end.x - 8.0:
+				break
+			ci.draw_rect(Rect2(x, y, 7, 5), Color(0.44, 0.18, 0.20))
+			ci.draw_rect(Rect2(x, y - 3, 7, 3), Color(0.52, 0.22, 0.24))
 
-static func _draw_party(ci: CanvasItem, r: Rect2, tr: Color, det: Color, lit: bool) -> void:
-	ci.draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 6), tr)
-	for i in range(int(r.size.x / 16.0)):
-		var cx := r.position.x + 10.0 + float(i) * 16.0
-		if cx > r.end.x - 8:
-			break
-		ci.draw_circle(Vector2(cx, r.position.y + 14), 5.0,
-			det if lit else det.darkened(0.5))
-		ci.draw_rect(Rect2(cx - 8, r.end.y - 12, 16, 2), tr)
-	ci.draw_rect(Rect2(r.position.x, r.end.y - 3, r.size.x, 3), tr)
+# --- services --------------------------------------------------------------
 
-static func _draw_service(ci: CanvasItem, r: Rect2, tr: Color, det: Color, t: String) -> void:
-	ci.draw_rect(Rect2(r.position.x, r.end.y - 3, r.size.x, 3), tr)
-	var c := r.get_center()
+static func _draw_service(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
+		det: Color, t: String) -> void:
+	_shell(ci, r, col, tr)
+	var base := r.end.y - 4.0
+	var ink := tr.darkened(0.2)
+	var c := Vector2(r.get_center().x, r.get_center().y)
 	match t:
 		"medical":
-			ci.draw_rect(Rect2(c.x - 3, c.y - 10, 6, 20), det)
-			ci.draw_rect(Rect2(c.x - 10, c.y - 3, 20, 6), det)
+			# a cross on the wall, a bed and a screen
+			ci.draw_rect(Rect2(r.position.x + 10, r.position.y + 8, 7, 20), det)
+			ci.draw_rect(Rect2(r.position.x + 3.5, r.position.y + 14.5, 20, 7), det)
+			ci.draw_rect(Rect2(r.end.x - 46, base - 11, 34, 3), ink)
+			ci.draw_rect(Rect2(r.end.x - 46, base - 9, 34, 7), Color(0.94, 0.94, 0.92))
+			ci.draw_rect(Rect2(r.end.x - 46, base - 15, 8, 5), Color(0.98, 0.98, 0.96))
+			ci.draw_rect(Rect2(r.end.x - 10, base - 22, 3, 22), ink)
+			ci.draw_rect(Rect2(r.end.x - 14, base - 26, 11, 6), ink)
 		"security":
+			# a shield on the wall, a desk and a bank of monitors
 			ci.draw_colored_polygon(PackedVector2Array([
-				Vector2(c.x, c.y - 11), Vector2(c.x + 9, c.y - 6),
-				Vector2(c.x + 7, c.y + 9), Vector2(c.x, c.y + 12),
-				Vector2(c.x - 7, c.y + 9), Vector2(c.x - 9, c.y - 6)]), det)
+				Vector2(r.position.x + 16, r.position.y + 7),
+				Vector2(r.position.x + 26, r.position.y + 12),
+				Vector2(r.position.x + 16, r.position.y + 26),
+				Vector2(r.position.x + 6, r.position.y + 12)]), det)
+			ci.draw_rect(Rect2(r.end.x - 44, base - 12, 32, 3), ink)
+			ci.draw_rect(Rect2(r.end.x - 44, base - 10, 32, 10), tr.lightened(0.1))
+			for i in range(3):
+				ci.draw_rect(Rect2(r.end.x - 42.0 + float(i) * 11.0, base - 24, 9, 10),
+					Color(0.30, 0.46, 0.36))
+				ci.draw_rect(Rect2(r.end.x - 42.0 + float(i) * 11.0, base - 24, 9, 10),
+					ink, false, 1.0)
 		"recycling":
+			# bins and the sorting arrows
 			for i in range(3):
 				var a := float(i) * TAU / 3.0 - PI / 2.0
-				var p := c + Vector2(cos(a), sin(a)) * 9.0
+				var p := Vector2(r.position.x + 30, c.y) + Vector2(cos(a), sin(a)) * 12.0
 				ci.draw_colored_polygon(PackedVector2Array([
-					p + Vector2(0, -5), p + Vector2(5, 4), p + Vector2(-5, 4)]), det)
+					p + Vector2(0, -7), p + Vector2(7, 5), p + Vector2(-7, 5)]), det)
+			var bx := r.position.x + 62.0
+			while bx < r.end.x - 12.0:
+				ci.draw_rect(Rect2(bx, base - 18, 14, 18), ink)
+				ci.draw_rect(Rect2(bx - 1, base - 21, 16, 4), tr)
+				bx += 20.0
 		_:
-			for i in range(3):
-				var x := r.position.x + 10.0 + float(i) * 22.0
-				if x > r.end.x - 8:
-					break
-				ci.draw_rect(Rect2(x, r.end.y - 16, 10, 12), det)
-				ci.draw_rect(Rect2(x + 4, r.end.y - 22, 2, 7), tr)
+			# housekeeping: a rack of carts, a bucket and a mop
+			var cx := r.position.x + 10.0
+			while cx < r.end.x - 22.0:
+				ci.draw_rect(Rect2(cx, base - 14, 13, 12), det)
+				ci.draw_rect(Rect2(cx, base - 18, 13, 5), tr)
+				ci.draw_circle(Vector2(cx + 3, base - 1), 2.0, ink)
+				ci.draw_circle(Vector2(cx + 10, base - 1), 2.0, ink)
+				cx += 20.0
+			ci.draw_line(Vector2(r.end.x - 8, r.position.y + 8),
+				Vector2(r.end.x - 13, base - 6), ink, 2.0)
+			ci.draw_colored_polygon(PackedVector2Array([
+				Vector2(r.end.x - 18, base), Vector2(r.end.x - 8, base),
+				Vector2(r.end.x - 10, base - 7), Vector2(r.end.x - 16, base - 7)]),
+				Color(0.78, 0.62, 0.32))
 
-static func _draw_parking(ci: CanvasItem, r: Rect2, tr: Color, det: Color, t: String) -> void:
+# --- underground and civic -------------------------------------------------
+
+static func _draw_parking(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
+		det: Color, t: String) -> void:
 	if t == "parking_ramp":
-		ci.draw_line(Vector2(r.position.x + 2, r.end.y - 3),
-			Vector2(r.end.x - 2, r.position.y + 4), det, 3.0)
-		ci.draw_line(Vector2(r.position.x + 2, r.end.y - 9),
-			Vector2(r.end.x - 2, r.position.y), tr, 2.0)
+		ci.draw_rect(r, col)
+		ci.draw_colored_polygon(PackedVector2Array([
+			Vector2(r.position.x + 2, r.end.y - 3), Vector2(r.end.x - 2, r.position.y + 5),
+			Vector2(r.end.x - 2, r.position.y + 11), Vector2(r.position.x + 2, r.end.y + 3)]),
+			tr.lightened(0.2))
+		for i in range(4):
+			var p := Vector2(r.position.x + 4, r.end.y - 6).lerp(
+				Vector2(r.end.x - 6, r.position.y + 8), float(i) / 3.0)
+			ci.draw_rect(Rect2(p.x - 4, p.y - 1, 8, 2), det)
 		return
-	# a bay with a little car
-	ci.draw_rect(Rect2(r.position.x + 1, r.position.y + 4, r.size.x - 2, 1), det)
+	# a bay: painted lines, a car, a strip light
+	ci.draw_rect(r, col)
+	ci.draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 3), tr)
+	ci.draw_rect(Rect2(r.position.x + 1, r.position.y + 6, r.size.x - 2, 1),
+		Color(0.90, 0.90, 0.86, 0.6))
+	ci.draw_rect(Rect2(r.position.x, r.position.y + 4, 1.5, r.size.y - 6),
+		Color(0.90, 0.90, 0.86, 0.5))
 	var cx := r.get_center().x
-	ci.draw_rect(Rect2(cx - 12, r.end.y - 14, 24, 8), det.darkened(0.25))
-	ci.draw_rect(Rect2(cx - 7, r.end.y - 19, 14, 6), det.darkened(0.1))
-	ci.draw_circle(Vector2(cx - 7, r.end.y - 6), 2.5, Color(0.15, 0.15, 0.15))
-	ci.draw_circle(Vector2(cx + 7, r.end.y - 6), 2.5, Color(0.15, 0.15, 0.15))
+	var base := r.end.y - 3.0
+	ci.draw_rect(Rect2(cx - 13, base - 10, 26, 6), det.darkened(0.3))
+	ci.draw_rect(Rect2(cx - 8, base - 15, 16, 6), det.darkened(0.15))
+	ci.draw_rect(Rect2(cx - 6, base - 14, 12, 4), GLASS.darkened(0.2))
+	ci.draw_circle(Vector2(cx - 7, base - 3), 3.0, Color(0.13, 0.13, 0.13))
+	ci.draw_circle(Vector2(cx + 7, base - 3), 3.0, Color(0.13, 0.13, 0.13))
 
-static func _draw_metro(ci: CanvasItem, r: Rect2, tr: Color, det: Color) -> void:
-	ci.draw_rect(Rect2(r.position.x + 4, r.end.y - 6, r.size.x - 8, 2), det)
-	ci.draw_rect(Rect2(r.position.x + 4, r.end.y - 10, r.size.x - 8, 2), det)
-	var train := Rect2(r.position.x + 20, r.end.y - 30, r.size.x - 60, 20)
-	ci.draw_rect(train, det.darkened(0.15))
-	ci.draw_rect(train, tr, false, 1.0)
-	for i in range(4):
-		ci.draw_rect(Rect2(train.position.x + 8.0 + float(i) * 26.0,
-			train.position.y + 5, 16, 8), Color(0.72, 0.86, 0.94))
+static func _draw_metro(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
+		det: Color) -> void:
+	ci.draw_rect(r, col)
+	# tiled wall
+	var y := r.position.y + 6.0
+	while y < r.end.y - 24.0:
+		ci.draw_line(Vector2(r.position.x, y), Vector2(r.end.x, y),
+			col.lightened(0.08), 1.0)
+		y += 9.0
+	# platform edge and rails
+	var base := r.end.y - 4.0
+	ci.draw_rect(Rect2(r.position.x, base - 14, r.size.x, 3), tr.lightened(0.3))
+	ci.draw_rect(Rect2(r.position.x, base - 2, r.size.x, 2), tr)
+	ci.draw_rect(Rect2(r.position.x, base - 6, r.size.x, 1.5), tr.lightened(0.4))
+	# the train, with lit windows
+	var train := Rect2(r.position.x + 16, base - 40, r.size.x - 44, 26)
+	ci.draw_rect(train, det.darkened(0.05))
+	ci.draw_rect(train, OUTLINE, false, 1.5)
+	ci.draw_rect(Rect2(train.position.x, train.position.y, train.size.x, 4),
+		det.darkened(0.35))
+	var i := 0
+	while train.position.x + 7.0 + float(i) * 26.0 < train.end.x - 16.0:
+		ci.draw_rect(Rect2(train.position.x + 7.0 + float(i) * 26.0,
+			train.position.y + 8, 17, 10), GLASS)
+		i += 1
+	ci.draw_rect(Rect2(train.end.x - 6, train.position.y + 9, 4, 5), WARM)
+	# a hanging sign
+	ci.draw_rect(Rect2(r.get_center().x - 18, r.position.y + 4, 36, 9), tr)
+	ci.draw_rect(Rect2(r.get_center().x - 15, r.position.y + 6, 30, 5), det)
 
-static func _draw_cathedral(ci: CanvasItem, r: Rect2, tr: Color, det: Color) -> void:
+static func _draw_cathedral(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
+		det: Color, lit: bool) -> void:
+	ci.draw_rect(r, col)
 	var c := r.get_center()
+	# gabled roof and a spire
 	ci.draw_colored_polygon(PackedVector2Array([
 		Vector2(c.x, r.position.y + 2),
-		Vector2(r.end.x - 4, r.position.y + r.size.y * 0.42),
-		Vector2(r.position.x + 4, r.position.y + r.size.y * 0.42)]), tr)
+		Vector2(r.end.x - 6, r.position.y + r.size.y * 0.38),
+		Vector2(r.position.x + 6, r.position.y + r.size.y * 0.38)]), tr)
+	ci.draw_rect(Rect2(c.x - 3, r.position.y - 22, 6, 24), tr)
+	ci.draw_rect(Rect2(c.x - 9, r.position.y - 14, 18, 5), tr)
 	# rose window
-	ci.draw_circle(Vector2(c.x, r.position.y + r.size.y * 0.60), 12.0, det)
-	ci.draw_circle(Vector2(c.x, r.position.y + r.size.y * 0.60), 12.0, tr, false, 2.0)
-	# arched doors
+	var rw := Vector2(c.x, r.position.y + r.size.y * 0.52)
+	ci.draw_circle(rw, 15.0, det if lit else det.darkened(0.4))
+	ci.draw_circle(rw, 15.0, tr, false, 2.5)
+	for i in range(8):
+		var a := float(i) * TAU / 8.0
+		ci.draw_line(rw, rw + Vector2(cos(a), sin(a)) * 15.0, tr, 1.5)
+	# arched doors and lancet windows
 	for i in [-1, 1]:
-		var x := c.x + float(i) * 40.0
-		ci.draw_rect(Rect2(x - 10, r.end.y - 30, 20, 30), tr)
-	ci.draw_rect(Rect2(c.x - 14, r.end.y - 40, 28, 40), tr)
-	# the cross
-	ci.draw_rect(Rect2(c.x - 2, r.position.y - 14, 4, 16), tr)
-	ci.draw_rect(Rect2(c.x - 7, r.position.y - 9, 14, 4), tr)
+		var x := c.x + float(i) * 46.0
+		_arch(ci, Vector2(x, r.end.y), 11.0, 34.0, tr)
+		_arch(ci, Vector2(x, r.position.y + r.size.y * 0.62), 6.0, 20.0,
+			det if lit else det.darkened(0.4))
+	_arch(ci, Vector2(c.x, r.end.y), 16.0, 46.0, tr)
+	ci.draw_rect(Rect2(r.position.x, r.end.y - 4, r.size.x, 4), tr.darkened(0.2))
+
+static func _arch(ci: CanvasItem, base: Vector2, half_w: float, h: float,
+		col: Color) -> void:
+	ci.draw_rect(Rect2(base.x - half_w, base.y - h + half_w, half_w * 2.0, h - half_w), col)
+	ci.draw_circle(Vector2(base.x, base.y - h + half_w), half_w, col)
+
+# --- transport laid over the floor -----------------------------------------
+#
+# These paint only themselves: no card behind them, no bounding outline, so
+# the rooms and the structure they cross stay legible.
 
 static func _draw_stairs(ci: CanvasItem, r: Rect2, tr: Color, det: Color) -> void:
-	var steps := 8
+	# A THIN stepped ribbon, not a filled wedge. Everything the flight does not
+	# physically occupy stays transparent, so the floor and the rooms it crosses
+	# read straight through.
+	var steps := 7
+	var sw := r.size.x / float(steps)
+	var sh := r.size.y / float(steps)
+	var slab := tr.lightened(0.52)
+	var thick := 4.0
 	for i in range(steps):
-		var t := float(i) / float(steps)
-		var x := r.position.x + t * r.size.x
-		var y := r.end.y - (t + 1.0 / float(steps)) * r.size.y
-		ci.draw_rect(Rect2(x, y, r.size.x / float(steps) + 1.0, 3.0), det)
-	ci.draw_line(r.position + Vector2(0, r.size.y), Vector2(r.end.x, r.position.y),
-		tr, 1.5)
+		var x := r.position.x + float(i) * sw
+		var y := r.end.y - float(i + 1) * sh
+		# tread, then the riser rising to the next one
+		ci.draw_rect(Rect2(x, y, sw + 0.5, thick), slab)
+		ci.draw_rect(Rect2(x, y, sw + 0.5, thick), OUTLINE, false, 1.0)
+		ci.draw_rect(Rect2(x, y, 1.5, thick), det)
+		if i < steps - 1:
+			ci.draw_rect(Rect2(x + sw - 0.5, y - sh, thick, sh + thick), slab)
+			ci.draw_rect(Rect2(x + sw - 0.5, y - sh, thick, sh + thick),
+				OUTLINE, false, 1.0)
+	# the stringer running under the noses, which is what carries the flight
+	ci.draw_line(Vector2(r.position.x, r.end.y - sh + thick + 1.0),
+		Vector2(r.end.x, r.position.y + thick + 1.0), tr, 2.0)
+	# handrail above, on short posts
+	ci.draw_line(Vector2(r.position.x + 1, r.end.y - sh - 12.0),
+		Vector2(r.end.x - 1, r.position.y - 12.0 + thick), tr, 2.0)
+	for i in range(0, steps + 1, 3):
+		var px := r.position.x + float(i) * sw
+		var py := r.end.y - float(i) * sh - sh
+		ci.draw_line(Vector2(px, py + thick), Vector2(px, py - 12.0), tr, 1.2)
 
-static func _draw_escalator(ci: CanvasItem, r: Rect2, tr: Color, det: Color) -> void:
-	ci.draw_line(Vector2(r.position.x, r.end.y - 4), Vector2(r.end.x, r.position.y + 6),
-		tr, 5.0)
-	ci.draw_line(Vector2(r.position.x, r.end.y - 10), Vector2(r.end.x, r.position.y),
-		det, 2.0)
-	for i in range(6):
-		var t := float(i) / 6.0
-		var p := Vector2(r.position.x, r.end.y - 4).lerp(Vector2(r.end.x, r.position.y + 6), t)
-		ci.draw_rect(Rect2(p.x - 2, p.y - 2, 4, 4), det.darkened(0.2))
+static func _draw_escalator(ci: CanvasItem, r: Rect2, tr: Color, det: Color,
+		minute: int) -> void:
+	var a := Vector2(r.position.x, r.end.y - 3)
+	var b := Vector2(r.end.x, r.position.y + 5)
+	var n := (b - a).normalized()
+	var up := Vector2(-n.y, n.x) * 11.0
+	# the truss the steps ride on
+	ci.draw_colored_polygon(PackedVector2Array([a, b, b + up, a + up]),
+		tr.lightened(0.45))
+	ci.draw_polyline(PackedVector2Array([a, b, b + up, a + up, a]), OUTLINE, 1.2)
+	# steps, marching while the day is on
+	var phase := fmod(float(minute) * 0.35, 1.0)
+	for i in range(9):
+		var t := (float(i) + phase) / 9.0
+		if t > 1.0:
+			continue
+		var p := a.lerp(b, t)
+		ci.draw_line(p + up * 0.15, p + up * 0.85, det, 2.0)
+	# balustrade
+	ci.draw_line(a + up * 1.25, b + up * 1.25, tr, 2.2)
+	ci.draw_line(a + up * 0.95, a + up * 1.45, tr, 1.5)
+	ci.draw_line(b + up * 0.95, b + up * 1.45, tr, 1.5)
 
 static func _hatch(ci: CanvasItem, r: Rect2, col: Color) -> void:
 	var x := r.position.x - r.size.y
@@ -398,49 +702,69 @@ static func draw_empty_floor(ci: CanvasItem, seg: int, row: int, w: int) -> void
 static func draw_lobby(ci: CanvasItem, seg: int, row: int, w: int, minute: int) -> void:
 	var r := cell_rect(seg, row, w, 1)
 	var col := body("lobby")
+	var tr := trim("lobby")
 	if is_dark(minute):
-		col = col.darkened(0.25)
+		col = col.darkened(0.22)
+		tr = tr.darkened(0.18)
 	ci.draw_rect(r, col)
-	ci.draw_rect(Rect2(r.position.x, r.end.y - 5, r.size.x, 5), trim("lobby"))
-	ci.draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 4), trim("lobby"))
-	# potted plants and a marble stripe
-	var x := r.position.x + 20.0
-	while x < r.end.x - 10.0:
-		ci.draw_rect(Rect2(x - 4, r.end.y - 14, 8, 9), Color(0.55, 0.38, 0.28))
-		ci.draw_circle(Vector2(x, r.end.y - 18), 6.0, Color(0.26, 0.44, 0.24))
-		x += 120.0
-	ci.draw_line(Vector2(r.position.x, r.end.y - 6), Vector2(r.end.x, r.end.y - 6),
-		Color(1, 1, 1, 0.30), 1.0)
+	# a polished marble floor with a reflected band
+	ci.draw_rect(Rect2(r.position.x, r.end.y - 7, r.size.x, 7), col.darkened(0.14))
+	ci.draw_line(Vector2(r.position.x, r.end.y - 7), Vector2(r.end.x, r.end.y - 7),
+		Color(1, 1, 1, 0.35), 1.0)
+	# coffered ceiling
+	ci.draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 5), tr)
+	var cx := r.position.x + 16.0
+	while cx < r.end.x - 8.0:
+		ci.draw_rect(Rect2(cx, r.position.y + 5, 10, 2), tr.lightened(0.25))
+		cx += 34.0
+	# columns, planters and benches along the concourse
+	var x := r.position.x + 26.0
+	var k := 0
+	while x < r.end.x - 12.0:
+		if k % 3 == 0:
+			ci.draw_rect(Rect2(x - 3, r.position.y + 6, 6, r.size.y - 13), tr.lightened(0.18))
+			ci.draw_rect(Rect2(x - 5, r.position.y + 6, 10, 3), tr)
+			ci.draw_rect(Rect2(x - 5, r.end.y - 10, 10, 3), tr)
+		elif k % 3 == 1:
+			_plant(ci, x, r.end.y - 7)
+		else:
+			ci.draw_rect(Rect2(x - 9, r.end.y - 14, 18, 2.5), tr)
+			ci.draw_rect(Rect2(x - 7, r.end.y - 12, 2, 5), tr)
+			ci.draw_rect(Rect2(x + 5, r.end.y - 12, 2, 5), tr)
+		x += 42.0
+		k += 1
 
-static func draw_shaft(ci: CanvasItem, s: Shaft, now_row_top: int, now_row_bot: int) -> void:
+static func draw_shaft(ci: CanvasItem, s: Shaft, _row_top: int, _row_bot: int) -> void:
 	var w := float(s.width()) * SEG_W
-	var top := maxi(s.bottom_row, now_row_bot)
-	var bot := mini(s.top_row, now_row_top)
 	var x := float(s.seg) * SEG_W
 	var y0 := -float(s.top_row + 1) * ROW_H
 	var y1 := -float(s.bottom_row) * ROW_H
 	var col := body(s.type)
 	ci.draw_rect(Rect2(x, y0, w, y1 - y0), col)
+	# guide rails and counterweight track
+	ci.draw_rect(Rect2(x + 1.5, y0, 2, y1 - y0), trim(s.type).lightened(0.25))
+	ci.draw_rect(Rect2(x + w - 3.5, y0, 2, y1 - y0), trim(s.type).lightened(0.25))
 	ci.draw_rect(Rect2(x, y0, w, y1 - y0), OUTLINE, false, 1.0)
-	# guide rails
-	ci.draw_line(Vector2(x + 2, y0), Vector2(x + 2, y1), trim(s.type), 1.0)
-	ci.draw_line(Vector2(x + w - 2, y0), Vector2(x + w - 2, y1), trim(s.type), 1.0)
-	# the motor room on top
-	ci.draw_rect(Rect2(x, y0 - 9, w, 9), trim(s.type))
-	ci.draw_rect(Rect2(x, y0 - 9, w, 9), OUTLINE, false, 1.0)
-	ci.draw_circle(Vector2(x + w * 0.5, y0 - 4.5), 3.0, detail(s.type))
-	# and a matching one below, which is the drag handle
-	ci.draw_rect(Rect2(x, y1, w, 6), trim(s.type))
-	ci.draw_rect(Rect2(x, y1, w, 6), OUTLINE, false, 1.0)
+	# the motor room on top, with its sheave
+	ci.draw_rect(Rect2(x, y0 - 10, w, 10), trim(s.type))
+	ci.draw_rect(Rect2(x, y0 - 10, w, 10), OUTLINE, false, 1.0)
+	ci.draw_circle(Vector2(x + w * 0.5, y0 - 5), 3.5, detail(s.type))
+	ci.draw_circle(Vector2(x + w * 0.5, y0 - 5), 1.5, trim(s.type).darkened(0.3))
+	# and a matching pit below, which is the other drag handle
+	ci.draw_rect(Rect2(x, y1, w, 7), trim(s.type))
+	ci.draw_rect(Rect2(x, y1, w, 7), OUTLINE, false, 1.0)
 
 static func draw_car(ci: CanvasItem, s: Shaft, c: Shaft.Car) -> void:
 	var w := float(s.width()) * SEG_W
 	var x := float(s.seg) * SEG_W
 	var y := -(c.pos + 1.0) * ROW_H
-	var r := Rect2(x + 1, y + 3, w - 2, ROW_H - 6)
+	var r := Rect2(x + 1.5, y + 3, w - 3, ROW_H - 6)
 	ci.draw_rect(r, detail(s.type))
+	# the doors, parted a little so it reads as a car and not a block
+	ci.draw_line(Vector2(r.get_center().x, r.position.y + 2),
+		Vector2(r.get_center().x, r.end.y - 2), detail(s.type).darkened(0.28), 1.5)
 	ci.draw_rect(r, OUTLINE, false, 1.0)
-	# how full it is
+	# how full it is, filling from the floor of the car
 	var cap := maxf(float(s.car_capacity()), 1.0)
 	var fill := clampf(float(c.riders.size()) / cap, 0.0, 1.0)
 	if fill > 0.0:
@@ -465,7 +789,6 @@ static func draw_santa(ci: CanvasItem, x: float, row: int, t: float) -> void:
 	var y := -float(row) * ROW_H + sin(t * 2.0) * 6.0
 	var red := Color(0.82, 0.14, 0.16)
 	var brown := Color(0.45, 0.30, 0.18)
-	# reindeer
 	for i in range(3):
 		var rx := x + 26.0 + float(i) * 20.0
 		ci.draw_rect(Rect2(rx, y - 8, 14, 7), brown)
@@ -475,13 +798,11 @@ static func draw_santa(ci: CanvasItem, x: float, row: int, t: float) -> void:
 		ci.draw_line(Vector2(rx + 2, y - 1), Vector2(rx + 1, y + 4), brown, 1.5)
 		ci.draw_line(Vector2(rx + 11, y - 1), Vector2(rx + 12, y + 4), brown, 1.5)
 	ci.draw_line(Vector2(x + 16, y - 5), Vector2(x + 88, y - 5), brown, 1.0)
-	# sleigh
 	ci.draw_colored_polygon(PackedVector2Array([
 		Vector2(x, y), Vector2(x + 22, y), Vector2(x + 22, y - 10),
 		Vector2(x + 6, y - 10), Vector2(x, y - 4)]), red)
 	ci.draw_line(Vector2(x - 2, y + 2), Vector2(x + 24, y + 2), Color(0.90, 0.78, 0.30), 2.0)
 	ci.draw_line(Vector2(x - 2, y + 2), Vector2(x - 5, y - 3), Color(0.90, 0.78, 0.30), 2.0)
-	# the man himself
 	ci.draw_rect(Rect2(x + 8, y - 22, 9, 13), red)
 	ci.draw_circle(Vector2(x + 12.5, y - 25), 4.0, Color(0.96, 0.82, 0.70))
 	ci.draw_circle(Vector2(x + 12.5, y - 16), 3.0, Color(0.96, 0.96, 0.96))

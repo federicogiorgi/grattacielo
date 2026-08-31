@@ -137,7 +137,13 @@ func _demo_tower() -> void:
 	Game.engine.plan_day(false, 0)
 	cam.position = Vector2(190.0 * Art.SEG_W, -5.0 * Art.ROW_H)
 	zoom_index = 2
-	cam.zoom = Vector2.ONE * ZOOMS[zoom_index]
+	var args2 := OS.get_cmdline_user_args()
+	if args2.has("--focus"):
+		var j := args2.find("--focus")
+		cam.position = Vector2(float(args2[j + 1]) * Art.SEG_W,
+			-float(args2[j + 2]) * Art.ROW_H)
+		zoom_index = 3
+	cam.zoom = Vector2.ONE * ZOOMS[zoom_index] * (2.6 if args2.has("--focus") else 1.0)
 	tool_bar.refresh()
 	if OS.get_cmdline_user_args().has("--windows"):
 		# Show every panel at once, so a screenshot proves they all lay out.
@@ -167,6 +173,8 @@ func _shot_tick(delta: float) -> void:
 		var img := get_viewport().get_texture().get_image()
 		img.save_png(_shot_path)
 		print("shot saved to ", _shot_path)
+		print("audio: ", Audio.mix_report())
+		Audio.shutdown()
 		get_tree().quit()
 
 # --- construction of the interface -----------------------------------------
@@ -214,9 +222,9 @@ func _build_menus() -> void:
 	op.add_check_item("Sound: Elevators", 3)
 	op.add_check_item("Sound: Background", 4)
 	op.add_check_item("Sound: Events", 5)
-	op.set_item_checked(op.get_item_index(3), true)
-	op.set_item_checked(op.get_item_index(4), true)
-	op.set_item_checked(op.get_item_index(5), true)
+	op.add_check_item("Music", 6)
+	for id in [3, 4, 5, 6]:
+		op.set_item_checked(op.get_item_index(id), true)
 	op.id_pressed.connect(_options_menu)
 	row.add_child(opts)
 
@@ -227,7 +235,9 @@ func _build_windows() -> void:
 
 	tool_bar = ToolBar.new()
 	tool_bar.position = Vector2(6, 126)
-	tool_bar.tool_picked.connect(func(_id): view.ghost_type = "")
+	tool_bar.tool_picked.connect(func(_id):
+		view.ghost_type = ""
+		Audio.play("click"))
 	root_ui.add_child(tool_bar)
 
 	map_window = MapWindow.new()
@@ -276,7 +286,9 @@ func _file_menu(id: int) -> void:
 			Game.load_game()
 			tool_bar.refresh()
 		2: Game.save_game()
-		3: get_tree().quit()
+		3:
+			Audio.shutdown()
+			get_tree().quit()
 
 func _windows_menu(id: int) -> void:
 	match id:
@@ -298,15 +310,16 @@ func _options_menu(id: int) -> void:
 				Game.say("There is no fire to put out.")
 		1: _zoom(1)
 		2: _zoom(-1)
-		3, 4, 5:
+		3, 4, 5, 6:
 			var op: PopupMenu = options_menu.get_popup()
 			var i: int = op.get_item_index(id)
 			var on: bool = not op.is_item_checked(i)
 			op.set_item_checked(i, on)
 			match id:
-				3: Audio.elevators_on = on
-				4: Audio.background_on = on
-				5: Audio.events_on = on
+				3: Audio.set_channel("elevators", on)
+				4: Audio.set_channel("background", on)
+				5: Audio.set_channel("events", on)
+				6: Audio.set_channel("music", on)
 
 # --- per-frame -------------------------------------------------------------
 

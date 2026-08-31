@@ -125,6 +125,10 @@ func _draw_structure(tw: Tower, row_lo: int, row_hi: int, seg_lo: int, seg_hi: i
 func _draw_facilities(tw: Tower, row_lo: int, row_hi: int, seg_lo: int, seg_hi: int,
 		minute: int) -> void:
 	var seen := {}
+	# Stairs and escalators are drawn last, on top of everything else on their
+	# floors: they are structure laid over the building, and they paint no
+	# background of their own so what they cross stays visible.
+	var overlay := []
 	for row in range(row_lo, row_hi + 1):
 		var c := seg_lo
 		while c <= seg_hi:
@@ -134,8 +138,13 @@ func _draw_facilities(tw: Tower, row_lo: int, row_hi: int, seg_lo: int, seg_hi: 
 				continue
 			if not seen.has(f.id):
 				seen[f.id] = true
-				Art.draw_facility(self, f, minute, _tint_for(f))
+				if f.kind() == FacilityDB.Kind.TRANSPORT:
+					overlay.append(f)
+				else:
+					Art.draw_facility(self, f, minute, _tint_for(f))
 			c = maxi(c + 1, f.seg + f.w)
+	for f in overlay:
+		Art.draw_facility(self, f, minute, _tint_for(f))
 
 func _tint_for(f: Facility) -> Color:
 	match overlay:

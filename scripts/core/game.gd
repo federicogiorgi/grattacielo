@@ -41,6 +41,11 @@ var selected_sim: int = -1
 var vip_watch_until: int = -1
 var save_path: String = "user://grattacielo.save"
 
+## Today's weather. Scenery, and the one thing that moves trade on its own:
+## "rainy days get about half the normal traffic".
+var weather: String = "clear"
+var _weather_bag: Array[String] = []
+
 func _ready() -> void:
 	rng.randomize()
 	new_game()
@@ -89,6 +94,19 @@ func _teardown() -> void:
 			engine.message.disconnect(c["callable"])
 		engine.sims.clear()
 		engine.walking_by_row.clear()
+		engine.arrivals.clear()
+		engine.departures.clear()
+		engine.named_sims.clear()
+	# The shafts hold sim ids in their queues and cars; the sims are gone, so
+	# the lists are dead weight that would otherwise keep the tower alive.
+	for sid in tower.shafts:
+		var sh: Shaft = tower.shafts[sid]
+		sh.queues.clear()
+		for c in sh.cars:
+			c.riders.clear()
+			c.stops.clear()
+	for fid in tower.facilities:
+		tower.facilities[fid].occupants.clear()
 	if events != null:
 		for c in events.announce.get_connections():
 			events.announce.disconnect(c["callable"])
@@ -162,6 +180,9 @@ func _process(delta: float) -> void:
 	events.update_santa(clock, delta)
 
 func _on_minute(m: int) -> void:
+	if m % 60 == 0 and m >= 6 * 60 and m < 23 * 60 \
+			and tower.count_of_type("metro") > 0:
+		Audio.play("train")
 	engine.set_now(clock.minute)
 	engine.minute_tick(m)
 	events.maybe_start_fire(m)
@@ -174,12 +195,26 @@ func _on_minute(m: int) -> void:
 # --- the daily cycle -------------------------------------------------------
 
 func _on_day_started(day_in_quarter: int, weekend: bool) -> void:
+	_roll_weather()
 	events.begin_day()
 	engine.begin_day()
 	engine.plan_day(weekend, day_in_quarter)
 	if weekend:
 		say("Weekend.")
 		_maybe_wedding()
+
+## Drawn from a shuffled bag rather than rolled, so a week of solid rain
+## cannot happen by accident.
+func _roll_weather() -> void:
+	if _weather_bag.is_empty():
+		_weather_bag = ["clear", "clear", "clear", "clear", "clear",
+			"cloudy", "cloudy", "cloudy", "rain", "rain", "rain", "snow"]
+		for i in range(_weather_bag.size() - 1, 0, -1):
+			var j := rng.randi_range(0, i)
+			var t := _weather_bag[i]
+			_weather_bag[i] = _weather_bag[j]
+			_weather_bag[j] = t
+	weather = _weather_bag.pop_back()
 
 ## On Sundays people gather in the cathedral, and once -- if your soul is pure
 ## and your lifts are well greased -- there is a wedding.
@@ -189,6 +224,7 @@ func _maybe_wedding() -> void:
 	if tower.count_of_type("cathedral") == 0:
 		return
 	events.wedding_done = true
+	Audio.play("church")
 	econ.earn_other(1000000, "Cathedral wedding")
 	say("A wedding in the cathedral! The bells carry right across the city.")
 
@@ -260,6 +296,8 @@ func _commercial_near(seg: int, row: int) -> Array:
 	return out
 
 func _drift_patrons(f: Facility) -> void:
+	if weather == "rain":
+		f.patrons_today = int(round(float(f.patrons_today) * Rules.RAIN_PATRON_FACTOR))
 	var rating := f.patron_rating()
 	match rating:
 		Rules.Eval.A: f.patrons += Rules.PATRON_DELTA_A
@@ -277,7 +315,7 @@ func _hotel_housekeeping() -> void:
 		elif _absolute_day() - f.dirty_since_day >= Rules.DIRTY_ROOM_DAYS_TO_ROACHES:
 			if not f.roaches:
 				f.roaches = true
-				Audio.play("bad", "events", -8.0)
+				Audio.play("bad")
 				say("Cockroaches on floor " + FacilityDB.row_label(f.row)
 					+ ". The room must be demolished.")
 
@@ -301,7 +339,7 @@ func _evaluate_all() -> void:
 				say("The VIP is delighted with your tower.")
 			else:
 				say("The VIP is not impressed. No promotion for you.")
-				Audio.play("bad", "events", -8.0)
+				Audio.play("bad")
 		events.vip_room = -1
 
 ## Radial broadcasting: noisy neighbours above, below and beside.
@@ -605,7 +643,7 @@ func try_place(type: String, seg: int, row: int, drag_w: int = -1,
 			return _fail("Not enough money to build floor")
 		return _fail("Not enough money for construction")
 	econ.spend_construction(total)
-	Audio.play("build", "background", -12.0)
+	Audio.play("build")
 	var f := tower.place(type, seg, row, w)
 	if f != null:
 		_after_place(f)
@@ -700,6 +738,7 @@ func _limit_check(type: String) -> String:
 	return ""
 
 func _fail(reason: String) -> Dictionary:
+	Audio.play("deny")
 	say(reason)
 	return {"ok": false, "reason": reason}
 
@@ -710,7 +749,7 @@ func try_bulldoze(seg: int, row: int) -> void:
 		return
 	if not res["ok"]:
 		return
-	Audio.play("wreck", "background", -12.0)
+	Audio.play("wreck")
 	if String(res["kind"]) == "facility":
 		var refund: int = int(res.get("refund", 0))
 		if refund < 0:
@@ -787,7 +826,7 @@ func save_game(path: String = "") -> bool:
 		"clock": clock.to_dict(),
 		"econ": econ.to_dict(),
 		"events": events.to_dict(),
-		"stars": stars,
+		"stars": stars, "weather": weather,
 	}
 	var fh := FileAccess.open(p, FileAccess.WRITE)
 	if fh == null:
@@ -816,6 +855,7 @@ func load_game(path: String = "") -> bool:
 	econ.from_dict(d["econ"])
 	events.from_dict(d.get("events", {}))
 	stars = int(d.get("stars", 1))
+	weather = String(d.get("weather", "clear"))
 	# Repopulate: leases are re-established at the next rest period.
 	for fid in tower.facilities:
 		var f: Facility = tower.facilities[fid]

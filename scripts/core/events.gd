@@ -35,6 +35,7 @@ var santa_active: bool = false
 var santa_claimed: bool = false
 var santa_year: int = -1
 var wedding_done: bool = false
+var _santa_jingle: float = 0.0
 
 signal announce(text: String)
 signal ask(question: String, tag: String)
@@ -78,6 +79,7 @@ func _has_underground_homes() -> bool:
 
 func _treasure() -> void:
 	announce.emit("Digging the foundations, the workmen found buried treasure.")
+	cue.emit("treasure", 0.0)
 	pending_treasure = true
 
 var pending_treasure: bool = false
@@ -121,6 +123,7 @@ func _start_vip() -> void:
 	var s: Facility = suites[rng.randi() % suites.size()]
 	vip_room = s.id
 	vip_visited = true
+	cue.emit("treasure", -4.0)
 	announce.emit("A VIP has arrived at your tower.")
 
 func _random_built_cell() -> Vector2i:
@@ -280,6 +283,11 @@ func update_santa(clock: GameClock, dt_seconds: float) -> void:
 			announce.emit("You hear sleigh bells somewhere in the sky...")
 			cue.emit("bells", -5.0)
 	if santa_active:
+		# sleigh bells, every few seconds, while he crosses
+		_santa_jingle -= dt_seconds
+		if _santa_jingle <= 0.0:
+			_santa_jingle = 3.2
+			cue.emit("sleigh", 0.0)
 		santa_x -= dt_seconds * 26.0
 		if santa_x < -40.0:
 			santa_active = false

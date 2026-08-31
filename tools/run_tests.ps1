@@ -8,7 +8,7 @@ param(
 
 $ErrorActionPreference = "Continue"
 $project = Split-Path -Parent $PSScriptRoot
-$suites = @("rules_check", "smoke", "santa")
+$suites = @("rules_check", "audio_check", "smoke", "santa")
 $bad = @("SCRIPT ERROR", "USER ERROR", "Parse Error", "Compile Error",
          "Failed to load", "Invalid access", "Invalid call", "Nonexistent")
 $failed = $false

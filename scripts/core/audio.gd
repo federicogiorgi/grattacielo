@@ -1,149 +1,256 @@
 extends Node
 
-## Sound, synthesized at startup so the project carries no audio files.
+## The sound of the tower: one-shots, a layered ambience bed, and music.
 ##
-## The manual gives the Options menu three separate toggles -- Elevators,
-## Background and Events -- so those are the three buses here, and each can be
-## switched off independently exactly as it could in 1994.
+## Everything is addressed by logical name through AudioManifest; nothing here
+## knows a file path. The recordings were cut from the Sonniss GDC bundle (see
+## assets/audio/CREDITS.md); the music is synthesized by tools/make_music.py.
+##
+## The manual gives the Options menu three independent toggles -- Elevators,
+## Background and Events -- so those are three real buses, and Music is a
+## fourth because a soundtrack you cannot silence is a soundtrack you come to
+## resent.
 
-const RATE := 22050
+const BUSES := ["Elevators", "Background", "Events", "Music"]
 
-var elevators_on := true
-var background_on := true
-var events_on := true
+var enabled := {"elevators": true, "background": true, "events": true, "music": true}
 
-var _bank: Dictionary = {}
-var _players: Array[AudioStreamPlayer] = []
-var _next_player := 0
-const VOICES := 12
+var _bus_index: Dictionary = {}          # channel name -> bus id
+var _cache: Dictionary = {}              # resource path -> AudioStream or null
+var _voices: Array[AudioStreamPlayer] = []
+var _next_voice := 0
+const VOICES := 14
+
+# One player per bed, each fading independently to its own target.
+var _beds: Dictionary = {}               # name -> {player, target_db}
+# Two music players, so one can fade in while the other fades out.
+var _music: Array[AudioStreamPlayer] = []
+var _music_now := 0
+var _track := ""
+
+var _wired: bool = false
+
+## True when there is no audio device to speak of -- a headless test run.
+## Without this the mix starts up during every check, loads three ambiences
+## nobody can hear, and leaves them held open at shutdown.
+##
+## The command line is the authority, not DisplayServer.get_name(): under
+## --headless with a --script the display driver still reported itself as the
+## platform's, so the mix started anyway and the first lift chime reached into
+## an empty voice pool. Every method below is guarded on its own array as well,
+## because "the sound engine is not set up" is a state worth surviving rather
+## than a state worth crashing in.
+var silent := false
 
 func _ready() -> void:
+	silent = DisplayServer.get_name() == "headless" 		or OS.get_cmdline_args().has("--headless")
+	if silent:
+		set_process(false)
+		return
+	_make_buses()
 	for i in range(VOICES):
 		var p := AudioStreamPlayer.new()
-		p.bus = "Master"
+		p.bus = "Events"
 		add_child(p)
-		_players.append(p)
-	_build_bank()
+		_voices.append(p)
+	for i in range(2):
+		var m := AudioStreamPlayer.new()
+		m.bus = "Music"
+		m.volume_db = AudioManifest.OFF_DB
+		add_child(m)
+		_music.append(m)
+	set_process(true)
 
-# --- the bank --------------------------------------------------------------
+## Streams are loaded the first time something asks for them, not at startup.
+## Preloading them was tidier to read and meant a headless test that never
+## plays a note still ended with a dozen resources held open at shutdown --
+## the kind of noise that trains you to ignore the next real one.
+func _stream(path: String, looping: bool) -> AudioStream:
+	if _cache.has(path):
+		return _cache[path]
+	if not ResourceLoader.exists(path):
+		_cache[path] = null
+		return null
+	var s: AudioStream = load(path)
+	if looping and s is AudioStreamOggVorbis:
+		s.loop = true
+	_cache[path] = s
+	return s
 
-func _build_bank() -> void:
-	# Lifts: a soft two-note chime as the doors open, and a low hum.
-	_bank["ding"] = _tone([[988.0, 0.10], [1319.0, 0.22]], 0.30, 0.22)
-	_bank["arrive"] = _tone([[660.0, 0.14], [880.0, 0.20]], 0.34, 0.20)
-	# Money: the cash register the info bar mentions.
-	_bank["cash"] = _tone([[1568.0, 0.05], [2093.0, 0.05], [1568.0, 0.16]], 0.26, 0.18)
-	_bank["spend"] = _tone([[392.0, 0.09], [294.0, 0.16]], 0.25, 0.20)
-	# Construction: workmen putting up walls.
-	_bank["build"] = _noise(0.18, 0.22, 1400.0)
-	_bank["wreck"] = _noise(0.34, 0.30, 500.0)
-	# Events.
-	_bank["fanfare"] = _tone([[523.0, 0.14], [659.0, 0.14], [784.0, 0.14],
-		[1047.0, 0.34]], 0.55, 0.22)
-	_bank["alarm"] = _tone([[880.0, 0.18], [740.0, 0.18], [880.0, 0.18],
-		[740.0, 0.24]], 0.60, 0.24)
-	_bank["bad"] = _tone([[330.0, 0.18], [247.0, 0.30]], 0.42, 0.22)
-	# Santa, who arrives to sleigh bells.
-	_bank["bells"] = _bells()
+func _make_buses() -> void:
+	for name in BUSES:
+		var idx := AudioServer.get_bus_index(name)
+		if idx == -1:
+			idx = AudioServer.bus_count
+			AudioServer.add_bus(idx)
+			AudioServer.set_bus_name(idx, name)
+			AudioServer.set_bus_send(idx, "Master")
+		_bus_index[name.to_lower()] = idx
 
-## A short melodic blip: a list of [frequency, seconds] with a soft envelope.
-func _tone(notes: Array, total: float, gain: float) -> AudioStreamWAV:
-	var n := int(total * float(RATE))
-	var data := PackedByteArray()
-	data.resize(n * 2)
-	var t := 0.0
-	var idx := 0
-	for note in notes:
-		var freq: float = note[0]
-		var dur: float = note[1]
-		var count := int(dur * float(RATE))
-		for i in range(count):
-			if idx >= n:
-				break
-			var u := float(i) / float(maxi(count, 1))
-			# quick attack, exponential tail -- warm rather than bright
-			var env: float = minf(u * 22.0, 1.0) * exp(-3.4 * u)
-			var ph := TAU * freq * (float(i) / float(RATE))
-			var s: float = sin(ph) * 0.72 + sin(ph * 2.0) * 0.20 + sin(ph * 3.0) * 0.08
-			_put(data, idx, s * env * gain)
-			idx += 1
-		t += dur
-	while idx < n:
-		_put(data, idx, 0.0)
-		idx += 1
-	return _wav(data)
-
-## Filtered noise, for hammering and for things falling down.
-func _noise(total: float, gain: float, cutoff: float) -> AudioStreamWAV:
-	var n := int(total * float(RATE))
-	var data := PackedByteArray()
-	data.resize(n * 2)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 12345
-	var prev := 0.0
-	var a: float = clampf(cutoff / float(RATE), 0.02, 0.9)
-	for i in range(n):
-		var u := float(i) / float(n)
-		var env: float = minf(u * 40.0, 1.0) * exp(-5.0 * u)
-		prev = prev + a * (rng.randf_range(-1.0, 1.0) - prev)
-		_put(data, i, prev * env * gain)
-	return _wav(data)
-
-## Sleigh bells: a cluster of high partials, jingling.
-func _bells() -> AudioStreamWAV:
-	var total := 1.6
-	var n := int(total * float(RATE))
-	var data := PackedByteArray()
-	data.resize(n * 2)
-	var parts := [2093.0, 2637.0, 3136.0, 3520.0]
-	for i in range(n):
-		var tt := float(i) / float(RATE)
-		var jingle: float = 0.5 + 0.5 * sin(TAU * 6.0 * tt)
-		var s := 0.0
-		for k in range(parts.size()):
-			s += sin(TAU * float(parts[k]) * tt) / float(parts.size())
-		var env: float = exp(-1.1 * tt) * jingle
-		_put(data, i, s * env * 0.16)
-	return _wav(data)
-
-func _put(data: PackedByteArray, i: int, v: float) -> void:
-	var s := int(clampf(v, -1.0, 1.0) * 32000.0)
-	data.encode_s16(i * 2, s)
-
-func _wav(data: PackedByteArray) -> AudioStreamWAV:
-	var w := AudioStreamWAV.new()
-	w.format = AudioStreamWAV.FORMAT_16_BITS
-	w.mix_rate = RATE
-	w.stereo = false
-	w.data = data
-	return w
-
-# --- playing ---------------------------------------------------------------
-
-func play(name: String, channel: String = "events", volume_db: float = -6.0) -> void:
+func _bus_for(channel: String) -> String:
 	match channel:
-		"elevators":
-			if not elevators_on:
-				return
-		"background":
-			if not background_on:
-				return
-		_:
-			if not events_on:
-				return
-	var s: AudioStreamWAV = _bank.get(name)
-	if s == null:
+		"elevators": return "Elevators"
+		"background": return "Background"
+		"music": return "Music"
+		_: return "Events"
+
+# --- one-shots -------------------------------------------------------------
+
+func play(name: String, channel: String = "events", volume_db: float = 0.0) -> void:
+	if silent or _voices.is_empty():
 		return
-	var p := _players[_next_player]
-	_next_player = (_next_player + 1) % _players.size()
-	p.stream = s
-	p.volume_db = volume_db
+	var spec: Dictionary = AudioManifest.SFX.get(name, {})
+	if spec.is_empty():
+		return
+	var ch := String(spec.get("channel", channel))
+	if not enabled.get(ch, true):
+		return
+	var stream := _stream(AudioManifest.sfx_path(name), false)
+	if stream == null:
+		return
+	var p := _voices[_next_voice]
+	_next_voice = (_next_voice + 1) % _voices.size()
+	p.bus = _bus_for(ch)
+	p.stream = stream
+	p.volume_db = float(spec.get("db", -10.0)) + volume_db
+	p.pitch_scale = randf_range(0.97, 1.03)   # so a repeated sound is not a loop
 	p.play()
 
-## Hook the game up. Called once by Main.
+# --- the running mix -------------------------------------------------------
+
+func _process(delta: float) -> void:
+	if silent or _music.is_empty():
+		return
+	var g = get_node_or_null(^"/root/Game")
+	if g == null or g.clock == null:
+		return
+	_choose_music(g)
+	_choose_beds(g)
+	_fade(delta)
+
+func _choose_music(g) -> void:
+	if not enabled["music"] or AudioManifest.MUSIC.is_empty():
+		_track = ""
+		return
+	var want := AudioManifest.track_for(g.clock.minute_of_day(), g.clock.is_weekend())
+	if want == _track:
+		return
+	var path := AudioManifest.music_path(want)
+	if _stream(path, true) == null:
+		return
+	_track = want
+	var nxt := 1 - _music_now
+	_music[nxt].stream = _stream(path, true)
+	_music[nxt].volume_db = AudioManifest.OFF_DB
+	_music[nxt].play()
+	_music_now = nxt
+
+## The bed is a mix, not a track: the city outside, the concourse inside, the
+## weather and the fire all fade up and down independently.
+func _choose_beds(g) -> void:
+	var h := float(g.clock.minute_of_day()) / 60.0
+	var day := h >= 6.0 and h < 19.5
+	var pop: float = float(g.tower.population())
+	var on: bool = enabled["background"]
+
+	_want("amb_day", day and on)
+	_want("amb_night", not day and on)
+	# The concourse only sounds busy once there is a crowd to make the noise.
+	var busy: bool = on and h >= 7.0 and h < 21.0 and pop > 120.0
+	_want("amb_lobby", busy, minf(pop / 3000.0, 1.0))
+	_want("amb_rain", on and g.weather == "rain")
+	_want("amb_fire", on and g.events.fire_active())
+
+func _want(name: String, playing: bool, scale: float = 1.0) -> void:
+	var bed: Dictionary = _beds.get(name, {})
+	if bed.is_empty():
+		if not playing:
+			return          # never heard, never loaded
+		var stream := _stream(AudioManifest.bed_path(name), true)
+		if stream == null:
+			return
+		var p := AudioStreamPlayer.new()
+		p.stream = stream
+		p.bus = "Background"
+		p.volume_db = AudioManifest.OFF_DB
+		add_child(p)
+		p.play()
+		bed = {"player": p, "target": AudioManifest.OFF_DB}
+		_beds[name] = bed
+	if not playing:
+		bed["target"] = AudioManifest.OFF_DB
+		return
+	var base: float = float(AudioManifest.BEDS[name]["db"])
+	# scale 0..1 maps to a further 18 dB of headroom below the bed's own level
+	bed["target"] = base - (1.0 - clampf(scale, 0.0, 1.0)) * 18.0
+
+func _fade(delta: float) -> void:
+	for name in _beds:
+		var bed: Dictionary = _beds[name]
+		var p: AudioStreamPlayer = bed["player"]
+		var step := 60.0 * delta / AudioManifest.FADE_BED
+		p.volume_db = move_toward(p.volume_db, float(bed["target"]), step)
+		if p.volume_db <= AudioManifest.OFF_DB + 0.5 and p.playing:
+			p.stream_paused = true
+		elif p.volume_db > AudioManifest.OFF_DB + 0.5 and p.stream_paused:
+			p.stream_paused = false
+	for i in range(_music.size()):
+		var p2: AudioStreamPlayer = _music[i]
+		var target := AudioManifest.OFF_DB
+		if i == _music_now and _track != "" and enabled["music"]:
+			target = float(AudioManifest.MUSIC[_track]["db"])
+		var step2 := 60.0 * delta / AudioManifest.FADE_MUSIC
+		p2.volume_db = move_toward(p2.volume_db, target, step2)
+		if p2.volume_db <= AudioManifest.OFF_DB + 0.5 and p2.playing and i != _music_now:
+			p2.stop()
+
+# --- hooking the game up ---------------------------------------------------
+
+## Called once by Main. Connects the things worth hearing.
 func listen(game: Node) -> void:
+	if _wired:
+		return
+	_wired = true
 	game.econ.transaction.connect(func(_label: String, amount: int):
-		play("cash" if amount > 0 else "spend", "events", -12.0))
-	game.star_changed.connect(func(_s): play("fanfare", "events", -3.0))
-	game.events.cue.connect(func(name: String, gain: float):
-		play(name, "events", gain))
+		play("cash" if amount > 0 else "spend"))
+	game.star_changed.connect(func(_s): play("fanfare"))
+	game.events.cue.connect(func(name: String, gain: float): play(name, "events", gain))
+
+## Godot tears the tree down before it checks for stragglers, so the loaded
+## streams have to be let go here or every headless run ends with a page of
+## "resources still in use" that nobody reads and that hides a real one.
+func shutdown() -> void:
+	_exit_tree()
+
+func _exit_tree() -> void:
+	for name in _beds:
+		var p: AudioStreamPlayer = _beds[name]["player"]
+		p.stop()
+		p.stream = null
+	for m in _music:
+		m.stop()
+		m.stream = null
+	for v in _voices:
+		v.stop()
+		v.stream = null
+	_beds.clear()
+	_music.clear()
+	_voices.clear()
+	_cache.clear()
+
+## What is actually audible right now, for the screenshot tool and for anybody
+## wondering why the tower is quiet.
+func mix_report() -> String:
+	var parts := PackedStringArray()
+	parts.append("music=" + (_track if _track != "" else "-"))
+	for name in _beds:
+		var p: AudioStreamPlayer = _beds[name]["player"]
+		if p.volume_db > AudioManifest.OFF_DB + 1.0:
+			parts.append("%s %.0fdB" % [name, p.volume_db])
+	parts.append("streams=%d loaded" % _cache.size())
+	return ", ".join(parts)
+
+func set_channel(channel: String, on: bool) -> void:
+	enabled[channel] = on
+	if channel == "music" and not on:
+		_track = ""

@@ -124,11 +124,18 @@ down**.
   below and beside.
 - **Escalators pool trade**: two commercial floors joined by one share
   customers, as the manual promises.
-- **Sound**, synthesized at startup rather than shipped as files: the lift
-  chime, the cash register, hammering on a building site, the fanfare when the
-  tower gains a star, the alarm for a fire or a bomb, and sleigh bells at
-  Christmas. The manual's three independent toggles — Elevators, Background,
-  Events — are on the Options menu and work separately.
+- **Sound.** Seventeen effects and five looping ambience beds, cut from the
+  Sonniss GDC Game Audio Bundle (provenance in `assets/audio/CREDITS.md`), plus
+  three music loops synthesized by `tools/make_music.py`. The ambience is a
+  mix rather than a track: the city outside fades from day to night, the
+  concourse rises with your population, rain comes and goes with the weather,
+  and a fire crackles while it burns. The music follows the clock — a calmer
+  loop at night, a busier one through the two rush hours. The manual's three
+  toggles (Elevators, Background, Events) are on the Options menu and work
+  separately; Music is a fourth.
+- **Weather.** Each day is drawn from a shuffled bag: clear, cloudy, rain or
+  snow. Rain is the one that matters — "rainy days get about half the normal
+  traffic" — and you can hear it on the windows.
 - **Events.** Fire (which spreads, which security fights according to how close
   they are, and which the helicopter always puts out); the terrorist, who
   demands money and whose bomb always goes off at one o'clock if security does
@@ -196,10 +203,11 @@ tools/           the checks, and the screenshot mode
 extras/          the original manual
 ```
 
-`scripts/core/audio.gd` synthesizes every sound into an `AudioStreamWAV` at
-startup. There are no image or sound files anywhere: everything is drawn from
-primitives and every sound is generated, so the project is self-contained and
-there is nothing to license.
+There are no image files: every object is drawn from primitives. The audio
+lives in `assets/audio/` and is addressed by logical name through
+`data/audio_manifest.gd` — no script names a sound file, the same rule the
+facility catalogue follows. `tools/make_audio.py` can rebuild every effect from
+the Sonniss bundle and `tools/make_music.py` every music loop from nothing.
 
 ---
 
@@ -209,13 +217,17 @@ there is nothing to license.
 powershell -ExecutionPolicy Bypass -File tools\run_tests.ps1
 ```
 
-Three suites, all headless, no window needed:
+Four suites, all headless, no window needed:
 
 - **`tools/rules_check.gd`** — every price, size, capacity, star threshold and
   cap asserted against the tables above, plus placement rules, transport rules,
   the economy, and a save/load round trip.
 - **`tools/smoke.gd`** — builds a small tower through the real API and runs it
   for a game year.
+- **`tools/audio_check.gd`** — every sound the game can ask for exists, loads,
+  is the right length, names a channel the Options menu can silence, and is not
+  louder than unity. A missing effect is silent, and silence is exactly what a
+  sound bug looks like.
 - **`tools/santa.gd`** — the Christmas easter egg, on its own, because it
   happens for a few minutes once a year and would otherwise never be exercised.
 
