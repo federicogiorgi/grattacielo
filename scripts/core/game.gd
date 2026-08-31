@@ -326,6 +326,13 @@ func _commercial_near(seg: int, row: int) -> Array:
 	return out
 
 func _drift_patrons(f: Facility) -> void:
+	# A diner nobody can walk to has no customers, whatever its rating would
+	# otherwise be. Same rule as letting: the trade a shop lives on is people
+	# passing on their way to a lift, and there is no lift to pass on the way to.
+	if not _reachable(f):
+		f.patrons = maxi(0, f.patrons - Rules.PATRON_DELTA_A)
+		f.eval = Rules.Eval.C
+		return
 	if weather == "rain":
 		f.patrons_today = int(round(float(f.patrons_today) * Rules.RAIN_PATRON_FACTOR))
 	var rating := f.patron_rating()
@@ -408,18 +415,26 @@ func _rest_period() -> void:
 			continue
 		match f.kind():
 			FacilityDB.Kind.OFFICE, FacilityDB.Kind.SHOP:
-				if not f.occupants.is_empty() and f.eval == Rules.Eval.C:
+				var gone: bool = f.eval == Rules.Eval.C or not _reachable(f)
+				if not f.occupants.is_empty() and gone:
 					_evict(f)
 					moved_out += 1
 			FacilityDB.Kind.CONDO:
-				if f.sold and f.eval == Rules.Eval.C:
+				if f.sold and (f.eval == Rules.Eval.C or not _reachable(f)):
 					econ.charge(f.sale_price, "Condominium refunded")
 					f.sold = false
 					_evict(f)
 					moved_out += 1
 			FacilityDB.Kind.SERVICE:
-				if f.occupants.is_empty() and f.capacity() > 0:
+				# Staff have the same problem as tenants, with a different set
+				# of transport: service lifts and stairs, never an escalator
+				# and never a passenger lift. A guardroom nobody can get to is
+				# a guardroom nobody works in.
+				if f.occupants.is_empty() and f.capacity() > 0 and _reachable(f):
 					_staff(f)
+				elif not f.occupants.is_empty() and not _reachable(f):
+					_evict(f)
+					moved_out += 1
 	if moved_out > 0:
 		say("%d tenants have left the tower." % moved_out)
 	_check_stars()
@@ -497,12 +512,33 @@ func _letting_allowed(kind: int) -> bool:
 		return true                       # somebody has to be first
 	return bad * 2 < occupied
 
+## Two questions, and a space has to answer both before anybody will take it.
+##
+## Is there a route at all -- and is the walk along its OWN floor short enough
+## that a tenant would put up with it. Without the second, one stack of lifts
+## in the middle of the tower served every space on every floor, however far
+## along it sat, which is not a tower design problem at all.
 func _reachable(f: Facility) -> bool:
 	if f.row == 0:
 		return true
+	if not tower.within_walk(f.seg, f.w, f.row, f.kind() == FacilityDB.Kind.SERVICE):
+		return false
 	var entrance := maxi(tower.lobby_left + 2, 0)
 	var legs := router.find(0, float(entrance), f.row, float(f.centre_seg()))
 	return not legs.is_empty()
+
+## Why a space is standing empty, for the magnifying glass. "" if it is not.
+func vacancy_reason(f: Facility) -> String:
+	if f.row == 0:
+		return ""
+	var d := tower.transport_distance(f.seg, f.w, f.row,
+		f.kind() == FacilityDB.Kind.SERVICE)
+	if d < 0:
+		return "No stairs or elevator on this floor"
+	if d > Rules.MAX_WALK_TO_TRANSPORT:
+		return "Too far from the nearest transport (%d, limit %d)" % [
+			d, Rules.MAX_WALK_TO_TRANSPORT]
+	return ""
 
 func _lease_office(f: Facility) -> void:
 	for i in range(f.capacity()):
@@ -732,9 +768,14 @@ func _after_place(f: Facility) -> void:
 	f.built_quarter = _abs_quarter()
 	match f.kind():
 		FacilityDB.Kind.SERVICE:
-			# You paid for the guards; they are on duty now, not at 3am.
-			if f.capacity() > 0:
+			# You paid for the guards; they are on duty now, not at 3am. But
+			# only if they can get there -- refusing at the rest period and
+			# taking them on now would be two different answers to one question.
+			if f.capacity() > 0 and _reachable(f):
 				_staff(f)
+			elif f.capacity() > 0:
+				Audio.play("deny")
+				say(vacancy_reason(f))
 		FacilityDB.Kind.HOTEL:
 			# The day's timetable was drawn up at midnight and knows nothing
 			# about a room built since, so tonight's guests are booked here.

@@ -93,6 +93,17 @@ const STARS := [
 ]
 
 # --- Movement --------------------------------------------------------------
+## How far along its own floor a space may be from the nearest thing that
+## moves people off that floor. Beyond it nobody rents: in the original, a
+## space too far from a lift or a staircase simply never became active.
+##
+## Sixty segments is set from the shape it produces rather than from a figure
+## in the manual, which never gives one -- it only calls width "a strategic
+## factor". Sixty means one shaft covers 124 segments of a 375-segment map, so
+## a full-width tower needs THREE, which is what the game is remembered for.
+## _shafts_needed_for_full_width in the checks holds that number.
+const MAX_WALK_TO_TRANSPORT := 60
+
 const MAX_STAIR_FLIGHTS := 4        # "won't use more than four sets of stairs"
 const MAX_ESCALATOR_RIDES := 7      # the manual's figure
 const MAX_ELEVATOR_TRANSFERS := 1   # "transfer from one elevator to another only once"

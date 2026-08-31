@@ -174,6 +174,8 @@ func _transport() -> void:
 	_moon_holds_all_night()
 	_one_rule_for_shafts()
 	_speeds()
+	_walking_reach()
+	_shafts_needed_for_full_width()
 	ok(Rules.SKY_LOBBY_EVERY == 15, "sky lobbies every fifteen floors")
 
 ## How far the legs alone will carry somebody. The manual gives two numbers
@@ -354,6 +356,100 @@ func _speeds() -> void:
 	ok(fastest / 60.0 < 240.0,
 		"even the fastest hour at x10 fits one frame, %.1f minutes" % (fastest / 60.0))
 
+## A space too far along its floor from any lift or staircase never lets. This
+## is the rule that makes width a design problem: without it one stack of lifts
+## in the middle of the tower served every space on every floor.
+func _walking_reach() -> void:
+	var g = load("res://scripts/core/game.gd").new()
+	root.add_child(g)
+	g.new_game()
+	g.econ.funds = 100000000
+	g.stars = 5
+	g.try_place("lobby", 5, 0, 365)
+	g.try_place("floor", 100, 1, 1)
+	g.try_place("elevator", 180, 0, -1, 1)
+	ok(g.tower.shaft_at(180, 0) != null, "one lift, in the middle")
+
+	# an office beside it, and one at the far end of the same floor
+	var near = g.tower.place("office", 190, 1)
+	var far = g.tower.place("office", 340, 1)
+	ok(near != null and far != null, "an office each side of the question")
+	ok(g.tower.transport_distance(near.seg, near.w, near.row) == 6,
+		"the near one is 6 segments off, got %d"
+			% g.tower.transport_distance(near.seg, near.w, near.row))
+	ok(g.tower.within_walk(near.seg, near.w, near.row), "and is within reach")
+	ok(not g.tower.within_walk(far.seg, far.w, far.row),
+		"the far one is %d segments off and is not"
+			% g.tower.transport_distance(far.seg, far.w, far.row))
+
+	for i in range(30):
+		g._letting_round(10 * 60)
+	ok(not near.occupants.is_empty(), "the near office lets")
+	ok(far.occupants.is_empty(), "the far one never does, however long you wait")
+
+	# put a staircase near it and it lets -- stairs count, not just lifts
+	g.try_place("floor", 100, 2, 1)
+	g.try_place("stairs", 330, 1, -1)
+	ok(g.tower.within_walk(far.seg, far.w, far.row), "stairs bring it into reach")
+	for i in range(30):
+		g._letting_round(10 * 60)
+	ok(not far.occupants.is_empty(), "and now it lets")
+
+	# take the stairs away again and the tenants go at the next rest period
+	ok(g.tower.transit_id_at(330, 1) != -1, "the staircase is there to remove")
+	g.tower.bulldoze(330, 1)
+	ok(g.tower.transit_id_at(330, 1) == -1, "the stairs come out")
+	g._rest_period()
+	ok(far.occupants.is_empty(), "and the wing empties")
+
+	# the ground floor never needs any of this
+	ok(g.tower.within_walk(360, 9, 0), "the lobby is its own way out")
+
+	# a service lift does not let an office, and an ordinary one does not
+	# staff a service room
+	g.try_place("service_elevator", 300, 0, -1, 1)
+	var far2 = g.tower.place("office", 250, 1)
+	ok(not g.tower.within_walk(far2.seg, far2.w, far2.row),
+		"a service lift is no use to a tenant")
+	ok(g.tower.within_walk(far2.seg, far2.w, far2.row, true),
+		"but it does serve the staff")
+
+## Three shafts for a full-width tower -- the number the limit is set to
+## produce. If MAX_WALK_TO_TRANSPORT is ever retuned, this says what it costs.
+func _shafts_needed_for_full_width() -> void:
+	var g = load("res://scripts/core/game.gd").new()
+	root.add_child(g)
+	g.new_game()
+	g.econ.funds = 100000000
+	g.stars = 5
+	g.try_place("lobby", 5, 0, 365)
+	g.try_place("floor", 100, 1, 1)
+	var span: Vector2i = g.tower.built_span(1)
+	var width: int = span.y - span.x + 1
+
+	# how many offices of a full floor are in reach of N evenly spread shafts
+	var covered := []
+	for n in range(1, 5):
+		for sid in g.tower.shafts.keys():
+			g.tower.bulldoze(g.tower.shafts[sid].seg, 0)
+		for i in range(n):
+			var at: int = span.x + int(float(width) * (float(i) + 0.5) / float(n)) - 2
+			g.try_place("elevator", at, 0, -1, 1)
+		var hit := 0
+		var total := 0
+		var c: int = span.x
+		while c + 8 <= span.y:
+			total += 1
+			if g.tower.within_walk(c, 9, 1):
+				hit += 1
+			c += 9
+		covered.append(100 * hit / total)
+	print("  full-width cover by shafts: 1=%d%%  2=%d%%  3=%d%%  4=%d%%"
+		% [covered[0], covered[1], covered[2], covered[3]])
+	ok(covered[0] < 50, "one shaft cannot cover a full-width floor")
+	ok(covered[2] >= 100, "three shafts can")
+	ok(covered[1] < 100, "two are not enough -- the limit would be too loose")
+
 func _climb_limits() -> void:
 	var t := Tower.new()
 	var r := Router.new(t)
@@ -420,6 +516,12 @@ func _letting_timing() -> void:
 	g.try_place("floor", 40, 2, 120)
 	g.try_place("stairs", 44, 0)
 	g.try_place("stairs", 44, 1)
+	# A second flight at the far end. This tower is 120 segments wide and had
+	# one staircase at one end of it, which since the walking-reach rule leaves
+	# the last office 63 segments from anything -- out of reach, and correctly
+	# never let. The test is about letting HOURS, so give it a tower that works.
+	g.try_place("stairs", 108, 0)
+	g.try_place("stairs", 108, 1)
 
 	# Eight o'clock: put up offices, flats, a hotel room and a security office.
 	g.clock.minute = 8.0 * 60.0

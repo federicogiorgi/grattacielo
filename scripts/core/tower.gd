@@ -699,20 +699,56 @@ func transports_on_row(row: int) -> Array:
 		_rebuild_index()
 	return _transport_index.get(row, [])
 
+## How far a space at [seg, seg+w) on this row is from the nearest thing that
+## can move a person OFF the row, in segments. 0 if one is under it already,
+## -1 if there is nothing on the row it may use.
+##
+## Who may use what is the router's rule, repeated here because this question
+## is asked before anybody exists to route: staff use service lifts and stairs,
+## everybody else uses ordinary lifts, stairs and escalators.
+func transport_distance(seg: int, w: int, row: int, staff: bool = false) -> int:
+	if row == 0:
+		return 0            # the lobby is the way in and the way out
+	var best := -1
+	for t in transports_on_row(row):
+		if bool(t.get("shaft", false)):
+			if bool(t.get("service", false)) != staff:
+				continue
+		elif staff and String(t["kind"]) == "escalator":
+			continue
+		var tseg: int = int(t["seg"])
+		var tw: int = int(t.get("w", 1))
+		# The number of segments of empty floor between the two, so touching
+		# is 0 -- the figure a player would get by counting the gap.
+		var gap := 0
+		if tseg > seg + w - 1:
+			gap = tseg - (seg + w)
+		elif tseg + tw - 1 < seg:
+			gap = seg - (tseg + tw)
+		if best < 0 or gap < best:
+			best = gap
+	return best
+
+## Is this space close enough to transport for anybody to take it?
+func within_walk(seg: int, w: int, row: int, staff: bool = false) -> bool:
+	var d := transport_distance(seg, w, row, staff)
+	return d >= 0 and d <= Rules.MAX_WALK_TO_TRANSPORT
+
 func _rebuild_index() -> void:
 	_transport_index.clear()
 	for fid in facilities:
 		var f: Facility = facilities[fid]
 		if f.type == "stairs" or f.type == "escalator":
 			_add_index(f.row, {"kind": f.type, "id": f.id, "seg": f.seg,
-				"from": f.row, "to": f.row + 1})
+				"w": f.w, "from": f.row, "to": f.row + 1})
 			_add_index(f.row + 1, {"kind": f.type, "id": f.id, "seg": f.seg,
-				"from": f.row + 1, "to": f.row})
+				"w": f.w, "from": f.row + 1, "to": f.row})
 	for sid in shafts:
 		var s: Shaft = shafts[sid]
 		for r in range(s.bottom_row, s.top_row + 1):
 			if s.serves_row(r):
-				_add_index(r, {"kind": s.type, "id": s.id, "seg": s.seg, "shaft": true})
+				_add_index(r, {"kind": s.type, "id": s.id, "seg": s.seg,
+					"w": s.width(), "shaft": true, "service": s.is_service()})
 	_index_dirty = false
 
 func _add_index(row: int, entry: Dictionary) -> void:

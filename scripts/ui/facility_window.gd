@@ -89,6 +89,12 @@ func refresh() -> void:
 	else:
 		status_lbl.text = "Occupied" if not f.occupants.is_empty() else "Vacant"
 
+	# If it is standing empty because nobody could walk to it, say so where
+	# the player is already looking rather than leaving them to guess.
+	var why := Game.vacancy_reason(f)
+	if why != "":
+		status_lbl.text = why
+
 	var q := f.quality / 300.0
 	var col := Rules.eval_colour(f.eval)
 	var cap := ""

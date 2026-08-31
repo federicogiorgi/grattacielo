@@ -203,6 +203,13 @@ func _draw_facilities(g, row_lo: int, row_hi: int, seg_lo: int, seg_hi: int,
 func _tint_for(f: Facility) -> Color:
 	match overlay:
 		"eval":
+			# Out of walking range of any transport: nobody will ever take it,
+			# so it gets its own flat grey rather than a rating it cannot earn.
+			# This is the overlay you use to find the gaps before you build.
+			var staff: bool = f.kind() == FacilityDB.Kind.SERVICE
+			var movable: bool = f.kind() != FacilityDB.Kind.TRANSPORT and f.row != 0
+			if movable and not Game.tower.within_walk(f.seg, f.w, f.row, staff):
+				return Color(0.20, 0.20, 0.24, 0.70)
 			if f.kind() in [FacilityDB.Kind.OFFICE, FacilityDB.Kind.CONDO,
 					FacilityDB.Kind.HOTEL, FacilityDB.Kind.SHOP, FacilityDB.Kind.FOOD]:
 				var c := Rules.eval_colour(f.eval)
