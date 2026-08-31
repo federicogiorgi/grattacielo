@@ -17,6 +17,11 @@ const COLS := FacilityDB.MAP_SEGMENTS
 var structure := PackedByteArray()
 var occupancy := PackedInt32Array()   # facility id per cell, -1 empty
 var shaft_grid := PackedInt32Array()  # shaft id per cell, -1 empty
+# Stairs and escalators lie ON the floor rather than taking it: the manual is
+# explicit that you may "place stairs on floors occupied by any type of
+# facility". They therefore get a layer of their own, so a flight laid across
+# a row of offices does not evict them.
+var transit_grid := PackedInt32Array()
 
 var facilities: Dictionary = {}       # id -> Facility
 var shafts: Dictionary = {}           # id -> Shaft
@@ -38,10 +43,12 @@ func _init() -> void:
 	structure.resize(ROWS * COLS)
 	occupancy.resize(ROWS * COLS)
 	shaft_grid.resize(ROWS * COLS)
+	transit_grid.resize(ROWS * COLS)
 	structure.fill(VOID)
 	for i in range(occupancy.size()):
 		occupancy[i] = -1
 		shaft_grid[i] = -1
+		transit_grid[i] = -1
 
 # --- grid access -----------------------------------------------------------
 
@@ -76,8 +83,20 @@ func shaft_id_at(seg: int, row: int) -> int:
 func shaft_at(seg: int, row: int) -> Shaft:
 	return shafts.get(shaft_id_at(seg, row), null)
 
+func transit_id_at(seg: int, row: int) -> int:
+	if not in_bounds(seg, row):
+		return -1
+	return transit_grid[idx(seg, row)]
+
+## The stairs or escalator crossing this cell, if any.
+func transit_at(seg: int, row: int) -> Facility:
+	return facilities.get(transit_id_at(seg, row), null)
+
+## Free for a room or a shaft. Stairs count as occupying: a lift may not run
+## through a staircase, and a room built under one would never be seen.
 func cell_free(seg: int, row: int) -> bool:
-	return facility_id_at(seg, row) == -1 and shaft_id_at(seg, row) == -1
+	return facility_id_at(seg, row) == -1 and shaft_id_at(seg, row) == -1 \
+		and transit_id_at(seg, row) == -1
 
 func range_free(seg: int, row: int, w: int) -> bool:
 	for c in range(seg, seg + w):
@@ -170,6 +189,28 @@ func check_place(type: String, seg: int, row: int, w_override: int = -1,
 
 	if not has_lobby():
 		res.reason = "Build a lobby first"
+		return res
+
+	# Stairs and escalators only need the two floors to exist. They may cross
+	# rooms -- they are drawn over them and nothing is hidden -- but not a lift
+	# shaft, and not each other.
+	if type == "stairs" or type == "escalator":
+		for r in range(row, row + h):
+			if not range_built(seg, r, w):
+				res.reason = "No floor at " + FacilityDB.row_label(r)
+				return res
+			for c in range(seg, seg + w):
+				if shaft_id_at(c, r) != -1:
+					res.reason = "An elevator is in the way"
+					return res
+				if transit_id_at(c, r) != -1:
+					res.reason = "Stairs are already here"
+					return res
+		if type == "escalator" and not _escalator_site_ok(seg, row):
+			res.reason = "Commercial and public areas only"
+			return res
+		res.ok = true
+		res.cost = int(d["cost"])
 		return res
 
 	if type == "floor":
@@ -352,11 +393,15 @@ func place(type: String, seg: int, row: int, w_override: int = -1) -> Facility:
 	var f := Facility.new(next_id, type, seg, row)
 	f.w = w
 	next_id += 1
+	var overlay := FacilityDB.kind_of(type) == FacilityDB.Kind.TRANSPORT
 	for r in range(row, row + h):
 		for c in range(seg, seg + w):
 			if structure[idx(c, r)] == VOID:
 				structure[idx(c, r)] = FLOOR
-			occupancy[idx(c, r)] = f.id
+			if overlay:
+				transit_grid[idx(c, r)] = f.id
+			else:
+				occupancy[idx(c, r)] = f.id
 		_touch(r)
 	facilities[f.id] = f
 	_index_dirty = true
@@ -432,6 +477,22 @@ func bulldoze(seg: int, row: int) -> Dictionary:
 		out.ok = true
 		out.kind = "shaft"
 		out.id = sid
+		_index_dirty = true
+		structure_changed.emit()
+		return out
+	# Stairs sit on top, so the bulldozer takes them first: otherwise a flight
+	# laid over a row of offices could never be removed.
+	var tid := transit_id_at(seg, row)
+	if tid != -1:
+		var tf: Facility = facilities[tid]
+		for r in range(tf.row, tf.row + tf.h):
+			for c in range(tf.seg, tf.seg + tf.w):
+				if in_bounds(c, r) and transit_grid[idx(c, r)] == tf.id:
+					transit_grid[idx(c, r)] = -1
+		facilities.erase(tf.id)
+		out.ok = true
+		out.kind = "facility"
+		out.id = tf.id
 		_index_dirty = true
 		structure_changed.emit()
 		return out
@@ -552,18 +613,24 @@ func from_dict(d: Dictionary) -> void:
 	structure = raw.decompress(int(d["structure_size"]))
 	occupancy.resize(ROWS * COLS)
 	shaft_grid.resize(ROWS * COLS)
+	transit_grid.resize(ROWS * COLS)
 	for i in range(occupancy.size()):
 		occupancy[i] = -1
 		shaft_grid[i] = -1
+		transit_grid[i] = -1
 	facilities.clear()
 	shafts.clear()
 	for fd in d.get("facilities", []):
 		var f := Facility.from_dict(fd)
 		facilities[f.id] = f
+		var overlay := f.kind() == FacilityDB.Kind.TRANSPORT
 		for r in range(f.row, f.row + f.h):
 			for c in range(f.seg, f.seg + f.w):
 				if in_bounds(c, r):
-					occupancy[idx(c, r)] = f.id
+					if overlay:
+						transit_grid[idx(c, r)] = f.id
+					else:
+						occupancy[idx(c, r)] = f.id
 			_touch(r)
 	for sd in d.get("shafts", []):
 		var s := Shaft.from_dict(sd)

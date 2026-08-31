@@ -90,6 +90,16 @@ class ToolButton extends Button:
 		custom_minimum_size = Vector2(ToolBar.ICON, ToolBar.ICON)
 		focus_mode = Control.FOCUS_NONE
 
+	func _make_custom_tooltip(_for_text: String) -> Object:
+		var d: Dictionary = FacilityDB.DEFS[tool_id]
+		var price := Economy.money(int(d["cost"]))
+		if String(d.get("drag", "")) == "h":
+			price += " per segment"
+		var note := ""
+		if locked:
+			note = "Needs %d stars" % int(d["stars"])
+		return UIKit.tooltip(String(d["name"]), price, String(d.get("desc", "")), note)
+
 	func _draw() -> void:
 		var pad := 3.0
 		var r := Rect2(pad, pad, size.x - pad * 2.0, size.y - pad * 2.0)

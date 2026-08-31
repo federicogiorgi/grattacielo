@@ -10,6 +10,8 @@ const BG_LIGHT := Color(0.93, 0.92, 0.89)
 const INK := Color(0.11, 0.11, 0.13)
 const ACCENT := Color(0.22, 0.34, 0.55)
 const GOLD := Color(0.92, 0.74, 0.20)
+const TIP_BG := Color(0.98, 0.97, 0.93)     # tooltips: paper, not smoked glass
+const MONEY := Color(0.16, 0.42, 0.24)
 
 static func panel_style(fill: Color = BG, border: Color = INK,
 		width: int = 2) -> StyleBoxFlat:
@@ -67,6 +69,23 @@ static func make_theme() -> Theme:
 	th.set_color("font_color", "LineEdit", INK)
 	th.set_color("caret_color", "LineEdit", INK)
 
+	# Tooltips. Godot's default panel is dark and translucent, and this theme
+	# paints every Label in near-black ink -- which TooltipLabel inherits,
+	# because it derives from Label. The two together gave black text on a
+	# dark grey wash. Both halves are set here so neither can drift.
+	var tip := panel_style(TIP_BG, INK, 2)
+	tip.content_margin_left = 10
+	tip.content_margin_right = 10
+	tip.content_margin_top = 7
+	tip.content_margin_bottom = 7
+	tip.shadow_color = Color(0, 0, 0, 0.32)
+	tip.shadow_size = 5
+	tip.shadow_offset = Vector2(1, 2)
+	th.set_stylebox("panel", "TooltipPanel", tip)
+	th.set_color("font_color", "TooltipLabel", INK)
+	th.set_color("font_shadow_color", "TooltipLabel", Color(0, 0, 0, 0))
+	th.set_font_size("font_size", "TooltipLabel", 13)
+
 	th.set_stylebox("panel", "ScrollContainer", StyleBoxEmpty.new())
 	th.set_stylebox("panel", "ItemList", panel_style(Color.WHITE))
 	th.set_stylebox("background", "ItemList", panel_style(Color.WHITE))
@@ -102,6 +121,48 @@ static func clear(node: Node) -> void:
 static func hsep() -> HSeparator:
 	var s := HSeparator.new()
 	return s
+
+## A tooltip with a shape to it: the name, then what it costs, then the
+## sentence about it. Three weights of the same ink rather than one, so the
+## eye lands on the name first and the price second.
+static func tooltip(title: String, price: String, desc: String,
+		note: String = "") -> Control:
+	var panel := PanelContainer.new()
+	var sb := panel_style(TIP_BG, INK, 2)
+	sb.content_margin_left = 11
+	sb.content_margin_right = 11
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	sb.shadow_color = Color(0, 0, 0, 0.32)
+	sb.shadow_size = 5
+	sb.shadow_offset = Vector2(1, 2)
+	panel.add_theme_stylebox_override("panel", sb)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 3)
+	panel.add_child(box)
+
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 12)
+	box.add_child(head)
+	var t := label(title, 15, INK)
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(t)
+	if price != "":
+		head.add_child(label(price, 14, MONEY))
+
+	if desc != "":
+		var rule := ColorRect.new()
+		rule.color = Color(INK.r, INK.g, INK.b, 0.22)
+		rule.custom_minimum_size.y = 1
+		box.add_child(rule)
+		var d := label(desc, 12, Color(0.28, 0.27, 0.25))
+		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		d.custom_minimum_size.x = 300
+		box.add_child(d)
+	if note != "":
+		box.add_child(label(note, 11, Color(0.62, 0.24, 0.18)))
+	return panel
 
 ## A coloured bar, used for the Eval and Stress readouts.
 class Gauge extends Control:

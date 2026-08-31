@@ -18,6 +18,7 @@ func _initialize() -> void:
 	_stars()
 	_limits()
 	_placement()
+	_stairs_overlay()
 	_transport()
 	_economy()
 	_save_load()
@@ -117,6 +118,37 @@ func _placement() -> void:
 	ok(t.check_place("lobby", 40, 14)["ok"] == false, "and only where there is a floor")
 	# The cathedral goes on the roof and nowhere else.
 	ok(not t.check_place("cathedral", 45, 1)["ok"], "the cathedral is not a ground-floor shop")
+
+## Stairs and escalators lie ON the floor. The manual: "You can place stairs
+## on floors occupied by any type of facility including hotel residences."
+func _stairs_overlay() -> void:
+	var t := Tower.new()
+	t.place("lobby", 40, 0, 120)
+	for r in range(1, 4):
+		t.place("floor", 40, r, 120)
+	for x in range(42, 140, 9):
+		t.place("office", x, 1)
+	ok(t.check_place("stairs", 44, 0)["ok"],
+		"stairs may be laid up through a floor full of offices")
+	var st := t.place("stairs", 44, 0)
+	ok(st != null, "the stairs are placed")
+	ok(t.facility_at(44, 1) != null and t.facility_at(44, 1).type == "office",
+		"and the office underneath them is still there")
+	ok(t.transit_at(44, 1) != null and t.transit_at(44, 1).type == "stairs",
+		"with the stairs on their own layer above it")
+	ok(not t.check_place("stairs", 46, 0)["ok"], "but not two flights in one place")
+	# A second flight where no office stands, to show a room cannot then be
+	# built into it. (Row 2 is free of the first flight, which only spans 0-1.)
+	t.place("stairs", 150, 0)
+	ok(not t.check_place("office", 150, 1)["ok"], "and no room built into a flight")
+	# A lift may not run through a staircase, nor a staircase through a lift.
+	ok(not t.check_place("elevator", 45, 0)["ok"], "no elevator through the stairs")
+	t.place_shaft("elevator", 200, 0, 2)
+	ok(not t.check_place("stairs", 199, 0)["ok"], "and no stairs through an elevator")
+	# The bulldozer takes the flight first, leaving what it crossed alone.
+	var res := t.bulldoze(46, 1)
+	ok(bool(res["ok"]) and int(res["id"]) == st.id, "the bulldozer removes the stairs")
+	ok(t.facility_at(46, 1) != null, "and the office it crossed survives")
 
 func _transport() -> void:
 	ok(Shaft.is_sky_lobby_row(0), "the ground floor is a sky lobby")

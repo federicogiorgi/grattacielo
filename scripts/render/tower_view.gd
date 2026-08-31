@@ -128,7 +128,6 @@ func _draw_facilities(tw: Tower, row_lo: int, row_hi: int, seg_lo: int, seg_hi: 
 	# Stairs and escalators are drawn last, on top of everything else on their
 	# floors: they are structure laid over the building, and they paint no
 	# background of their own so what they cross stays visible.
-	var overlay := []
 	for row in range(row_lo, row_hi + 1):
 		var c := seg_lo
 		while c <= seg_hi:
@@ -138,13 +137,18 @@ func _draw_facilities(tw: Tower, row_lo: int, row_hi: int, seg_lo: int, seg_hi: 
 				continue
 			if not seen.has(f.id):
 				seen[f.id] = true
-				if f.kind() == FacilityDB.Kind.TRANSPORT:
-					overlay.append(f)
-				else:
-					Art.draw_facility(self, f, minute, _tint_for(f))
+				Art.draw_facility(self, f, minute, _tint_for(f))
 			c = maxi(c + 1, f.seg + f.w)
-	for f in overlay:
-		Art.draw_facility(self, f, minute, _tint_for(f))
+	# Stairs and escalators live on their own layer and are drawn last, over
+	# whatever they cross. There are at most sixty-four of them, so listing
+	# them is cheaper than scanning the grid for them.
+	for t in ["stairs", "escalator"]:
+		for f in tw.all_of_type(t):
+			if f.row + f.h - 1 < row_lo or f.row > row_hi:
+				continue
+			if f.seg + f.w - 1 < seg_lo or f.seg > seg_hi:
+				continue
+			Art.draw_facility(self, f, minute, Color(0, 0, 0, 0))
 
 func _tint_for(f: Facility) -> Color:
 	match overlay:

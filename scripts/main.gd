@@ -116,6 +116,8 @@ func _demo_tower() -> void:
 	t.place("metro", 170, -2)
 	t.place("stairs", 256, 0)
 	t.place("stairs", 256, 1)
+	t.place("stairs", 150, 1)
+	t.place("stairs", 190, 5)
 	t.place("escalator", 246, 3)
 	var s := t.place_shaft("elevator", 200, 0, 8)
 	s.add_car(3)
@@ -160,6 +162,18 @@ func _demo_tower() -> void:
 		finance_window.position = Vector2(600, 430)
 		find_window.position = Vector2(940, 430)
 		find_window.show()
+	elif OS.get_cmdline_user_args().has("--tip"):
+		# Show a few tooltips at once, so their contrast can be judged from a
+		# screenshot rather than by hovering.
+		var y := 150.0
+		for id in ["condo", "express_elevator", "cathedral"]:
+			var tip := UIKit.tooltip(String(FacilityDB.DEFS[id]["name"]),
+				Economy.money(int(FacilityDB.DEFS[id]["cost"])),
+				String(FacilityDB.DEFS[id]["desc"]),
+				"Needs %d stars" % int(FacilityDB.DEFS[id]["stars"]) if id == "cathedral" else "")
+			tip.position = Vector2(260, y)
+			root_ui.add_child(tip)
+			y += 130.0
 	else:
 		map_window.show()
 
@@ -557,6 +571,8 @@ func _inspect(c: Vector2i) -> void:
 		elevator_window.show_shaft(s.id)
 		return
 	var f := Game.tower.facility_at(c.x, c.y)
+	if f == null:
+		f = Game.tower.transit_at(c.x, c.y)
 	if f != null:
 		Game.selected_facility = f.id
 		Game.selected_shaft = -1
@@ -654,4 +670,5 @@ func _finger_drag(c: Vector2i) -> void:
 		return
 	var err := Game.tower.resize_shaft(s, nb, nt)
 	if err != "":
-		Game.say(err)
+		Audio.play("deny")
+		Game.say(err + " -- clear it before the shaft can pass")
