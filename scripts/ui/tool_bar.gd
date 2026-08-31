@@ -20,6 +20,7 @@ const COLUMNS := 3
 var buttons: Dictionary = {}
 var mode_buttons: Dictionary = {}
 var pause_btn: Button
+var undo_btn: Button
 var speed_label: Label
 var scroller: ScrollContainer
 var current: String = "lobby"
@@ -371,6 +372,11 @@ func _build() -> void:
 	speed_label = UIKit.label("x1", 11)
 	row.add_child(speed_label)
 
+	undo_btn = UIKit.button("Undo", func(): Game.undo_build())
+	undo_btn.custom_minimum_size = Vector2(COLUMNS * ICON - 4, 24)
+	undo_btn.tooltip_text = "Take back the last thing you built.\nTwo tower hours to change your mind."
+	body.add_child(undo_btn)
+
 	var modes := HBoxContainer.new()
 	modes.add_theme_constant_override("separation", 1)
 	body.add_child(modes)
@@ -420,6 +426,9 @@ func _toggle_pause() -> void:
 
 func sync_pause_button() -> void:
 	pause_btn.text = ">" if Game.manual_paused else "||"
+	var left := Game.undo_left()
+	undo_btn.disabled = left <= 0.0
+	undo_btn.text = "Undo" if left <= 0.0 else "Undo  %d min" % int(ceil(left))
 
 func _speed(d: int) -> void:
 	Game.speed_index = clampi(Game.speed_index + d, 0, Game.SPEEDS.size() - 1)

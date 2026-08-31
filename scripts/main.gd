@@ -120,13 +120,18 @@ func _demo_tower() -> void:
 	t.place("stairs", 256, 2)
 	t.place("stairs", 150, 1)
 	t.place("stairs", 190, 5)
-	t.place("escalator", 246, 3)
+	t.place("escalator", 252, 2)
 	var s := t.place_shaft("elevator", 200, 0, 8)
 	s.add_car(3)
 	s.add_car(6)
 	var s2 := t.place_shaft("express_elevator", 190, 0, 8)
 	s2.add_car(8)
 	Game.stars = 5
+	# The demo builds through Tower directly, which skips the step that gives
+	# a shop or a diner its brand -- so do it here, or every fast food in the
+	# picture comes out the same colour.
+	for fid in t.facilities:
+		Game._after_place(t.facilities[fid])
 	# Fill it up straight away, so the picture shows a working tower rather
 	# than a hundred empty rooms waiting for their first tenant.
 	for i in range(30):
@@ -137,12 +142,18 @@ func _demo_tower() -> void:
 			if f.kind() in [FacilityDB.Kind.OFFICE, FacilityDB.Kind.CONDO,
 					FacilityDB.Kind.SHOP]:
 				f.eval = Rules.Eval.A
-	Game.clock.minute = 12.0 * 60.0
+	# Run the morning for real, so the tower in the picture has people in it
+	# rather than a cast that was scheduled to arrive at eight and never did.
+	Game.clock.minute = 6.0 * 60.0
+	Game.clock._last_int_minute = int(Game.clock.minute)
+	Game.engine.plan_day(false, 0)
+	var guard := 0
+	while Game.clock.minute_of_day() < 13 * 60 and guard < 60000:
+		Game._process(0.2)
+		guard += 1
 	if OS.get_cmdline_user_args().has("--moon"):
 		Game.clock.minute = 23.0 * 60.0
 		view.moon_demo = true
-	Game.clock._last_int_minute = int(Game.clock.minute)
-	Game.engine.plan_day(false, 0)
 	cam.position = Vector2(190.0 * Art.SEG_W, -5.0 * Art.ROW_H)
 	zoom_index = 2
 	var args2 := OS.get_cmdline_user_args()
@@ -427,7 +438,7 @@ func _unhandled_input(e: InputEvent) -> void:
 				if e.pressed:
 					right_from = e.position
 				elif (e.position - right_from).length() < 6.0:
-					tool_bar.deselect()
+					_go_back()
 			MOUSE_BUTTON_LEFT:
 				if e.pressed:
 					_press(_cell_under_mouse())
@@ -454,6 +465,25 @@ func _unhandled_input(e: InputEvent) -> void:
 				else:
 					finance_window.show()
 					finance_window.refresh()
+
+## Right click means "back": it shuts the front-most window that is open, and
+## once they are all shut it puts the current tool down. One button to undo
+## whatever the last thing you opened or picked was.
+func _go_back() -> void:
+	var windows := [ask_dialog, tenant_window, facility_window, elevator_window,
+		finance_window, find_window, map_window]
+	var front: Control = null
+	var best := -1
+	for w in windows:
+		if w.visible and w.get_index() > best:
+			best = w.get_index()
+			front = w
+	if front != null:
+		front.hide()
+		Game.selected_facility = -1
+		Game.selected_shaft = -1
+		return
+	tool_bar.deselect()
 
 func _cell_under_mouse() -> Vector2i:
 	return view.world_to_cell(get_global_mouse_position())

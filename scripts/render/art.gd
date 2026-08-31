@@ -173,8 +173,11 @@ static func _window(ci: CanvasItem, r: Rect2, lit: bool, mullions: int = 1) -> v
 # Facilities
 # ---------------------------------------------------------------------------
 
+## `present` is how many of the people who belong here are actually inside
+## right now. A lit window is not the same as an occupied room, and a tower
+## with nobody visible in it looks like a model rather than a place.
 static func draw_facility(ci: CanvasItem, f: Facility, minute: int,
-		eval_tint: Color = Color(0, 0, 0, 0)) -> void:
+		eval_tint: Color = Color(0, 0, 0, 0), present: int = 0) -> void:
 	var r := cell_rect(f.seg, f.row, f.w, f.h)
 	var t := f.type
 
@@ -205,6 +208,9 @@ static func draw_facility(ci: CanvasItem, f: Facility, minute: int,
 	var col := body(t)
 	var tr := trim(t)
 	var det := detail(t)
+	if FacilityDB.kind_of(t) == FacilityDB.Kind.FOOD and f.brand != "":
+		col = brand_body(f.brand, col)
+		tr = brand_trim(f.brand, tr)
 	if f.wrecked:
 		ci.draw_rect(r, Color(0.16, 0.15, 0.14))
 		_hatch(ci, r, Color(0.34, 0.30, 0.26))
@@ -225,22 +231,22 @@ static func draw_facility(ci: CanvasItem, f: Facility, minute: int,
 
 	match FacilityDB.kind_of(t):
 		FacilityDB.Kind.OFFICE:
-			_draw_office(ci, r, col, tr, det, lit, minute)
+			_draw_office(ci, r, col, tr, det, lit, minute, present)
 		FacilityDB.Kind.CONDO:
-			_draw_condo(ci, r, col, tr, det, lit, minute)
+			_draw_condo(ci, r, col, tr, det, lit, minute, present)
 		FacilityDB.Kind.HOTEL:
-			_draw_hotel(ci, r, col, tr, det, lit, f)
+			_draw_hotel(ci, r, col, tr, det, lit, f, present)
 		FacilityDB.Kind.FOOD:
-			_draw_food(ci, r, col, tr, det, lit, t == "restaurant")
+			_draw_food(ci, r, col, tr, det, lit, t == "restaurant", f.brand, present)
 		FacilityDB.Kind.SHOP:
-			_draw_shop(ci, r, col, tr, det, lit)
+			_draw_shop(ci, r, col, tr, det, lit, present)
 		FacilityDB.Kind.VENUE:
 			if t == "cinema":
-				_draw_cinema(ci, r, col, tr, det, lit)
+				_draw_cinema(ci, r, col, tr, det, lit, present)
 			else:
-				_draw_party(ci, r, col, tr, det, lit)
+				_draw_party(ci, r, col, tr, det, lit, present)
 		FacilityDB.Kind.SERVICE:
-			_draw_service(ci, r, col, tr, det, t)
+			_draw_service(ci, r, col, tr, det, t, present)
 		FacilityDB.Kind.PARKING:
 			_draw_parking(ci, r, col, tr, det, t)
 		FacilityDB.Kind.CIVIC:
@@ -301,20 +307,39 @@ static func _lit(f: Facility, minute: int) -> bool:
 		_:
 			return true
 
+# --- people ----------------------------------------------------------------
+
+## Shirt colours, so a room full of workers is not a row of identical dolls.
+const SHIRTS := [Color(0.26, 0.32, 0.48), Color(0.55, 0.24, 0.26),
+	Color(0.24, 0.42, 0.34), Color(0.46, 0.36, 0.22), Color(0.36, 0.28, 0.44),
+	Color(0.62, 0.48, 0.28)]
+
+const SKIN := Color(0.92, 0.76, 0.62)
+
+## Somebody in a room, seen from the side. Seated figures are shorter and sit
+## a chair's height off the floor; standing ones reach their full height.
+static func _figure(ci: CanvasItem, x: float, base_y: float, tint: int,
+		sitting: bool = false) -> void:
+	var shirt: Color = SHIRTS[posmod(tint, SHIRTS.size())]
+	if sitting:
+		ci.draw_rect(Rect2(x - 2.5, base_y - 11, 5, 7), shirt)      # torso
+		ci.draw_rect(Rect2(x - 1, base_y - 4, 5, 2.5), shirt.darkened(0.3))
+		ci.draw_circle(Vector2(x, base_y - 13), 2.6, SKIN)
+	else:
+		ci.draw_rect(Rect2(x - 2.5, base_y - 13, 5, 9), shirt)
+		ci.draw_rect(Rect2(x - 2.5, base_y - 4, 5, 4), shirt.darkened(0.35))
+		ci.draw_circle(Vector2(x, base_y - 15), 2.8, SKIN)
+
 # --- offices and homes -----------------------------------------------------
 
 ## An office is two big panes of glass with the sky behind them, a desk under
 ## each, and nothing else. It has to be told apart from a flat at a glance and
 ## across a whole floor of them, so the difference is structural: bare glazing
 ## and a cold grey-blue against curtains, a sofa and a warm tan.
-## An office is two big panes of glass with the sky behind them, a desk under
-## each, and nothing else. It has to be told apart from a flat at a glance and
-## across a whole floor of them, so the difference is structural: bare glazing
-## and a cold grey-blue against curtains, a sofa and a warm tan.
 static func _draw_office(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
-		det: Color, lit: bool, minute: int) -> void:
+		det: Color, lit: bool, minute: int, present: int) -> void:
 	_shell(ci, r, col, tr)
-	var base := r.end.y - 4.0
+	var base := r.end.y - SLAB
 	var ink := tr.darkened(0.15)
 	var sky := sky_colour(minute)
 
@@ -327,7 +352,6 @@ static func _draw_office(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
 	for i in range(2):
 		var g := Rect2(r.position.x + pad + float(i) * (w + gap), top, w, bot - top)
 		ci.draw_rect(g, sky)
-		# a transom and a mullion, so it reads as a window and not a hole
 		ci.draw_line(Vector2(g.position.x, g.position.y + g.size.y * 0.38),
 			Vector2(g.end.x, g.position.y + g.size.y * 0.38), ink, 1.0)
 		ci.draw_line(Vector2(g.get_center().x, g.position.y),
@@ -335,30 +359,32 @@ static func _draw_office(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
 		ci.draw_rect(g, ink, false, 1.5)
 		ci.draw_rect(Rect2(g.position.x - 1, g.end.y, g.size.x + 2, 2), tr)
 		if lit:
-			# the light falls on the sill and the floor below, not on the glass
 			ci.draw_rect(Rect2(g.position.x - 1, g.end.y + 2, g.size.x + 2, 2),
 				Color(det.r, det.g, det.b, 0.55))
 
-	# A desk under each window: a top, a monitor, a chair back.
+	# A desk under each window, with whoever is at it.
 	for i in range(2):
 		var cx := r.position.x + pad + w * 0.5 + float(i) * (w + gap)
+		if present > i:
+			_figure(ci, cx + w * 0.20, base, i, true)
 		ci.draw_rect(Rect2(cx - w * 0.34, base - 9, w * 0.68, 2.0), ink)
 		ci.draw_rect(Rect2(cx - w * 0.30, base - 7, 1.5, 7), ink)
 		ci.draw_rect(Rect2(cx + w * 0.28, base - 7, 1.5, 7), ink)
 		ci.draw_rect(Rect2(cx - 4, base - 15, 8, 6), det if lit else ink)
 		ci.draw_rect(Rect2(cx - 4, base - 15, 8, 6), ink, false, 1.0)
-		ci.draw_rect(Rect2(cx + w * 0.16, base - 13, 2, 6), ink)
+	# anybody else is on their feet between the desks
+	if present > 2:
+		_figure(ci, r.position.x + pad + w + gap * 0.5, base, 2, false)
 
 ## A flat is a home: one curtained window, a sofa, a standing lamp, a
 ## television and a plant, in warm tan. Nothing here is glazed edge to edge,
 ## which is the whole point of the contrast with an office.
 static func _draw_condo(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
-		det: Color, lit: bool, minute: int) -> void:
+		det: Color, lit: bool, minute: int, present: int) -> void:
 	_shell(ci, r, col, tr)
-	var base := r.end.y - 4.0
+	var base := r.end.y - SLAB
 	var ink := tr.darkened(0.15)
 
-	# a modest window with the curtains half drawn
 	var g := Rect2(r.position.x + 9, r.position.y + 8, 22, 14)
 	ci.draw_rect(g, sky_colour(minute))
 	ci.draw_line(Vector2(g.get_center().x, g.position.y),
@@ -369,15 +395,21 @@ static func _draw_condo(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
 		ci.draw_rect(Rect2(cxx - 3.0, g.position.y - 2, 6, g.size.y + 4), tr)
 	ci.draw_rect(Rect2(g.position.x - 6, g.position.y - 4, g.size.x + 12, 2.5), ink)
 
-	# sofa, side lamp, television, rug
 	var sx := r.position.x + 44.0
 	ci.draw_rect(Rect2(sx - 6, base - 1, 40, 1.5), det.darkened(0.25))
-	ci.draw_rect(Rect2(sx, base - 9, 26, 9), tr)
+	# whoever is home is on the sofa, so they are drawn before its front
+	if present > 0:
+		_figure(ci, sx + 7, base - 2, 3, true)
+	if present > 1:
+		_figure(ci, sx + 19, base - 2, 1, true)
 	ci.draw_rect(Rect2(sx, base - 15, 26, 7), tr.lightened(0.16))
+	ci.draw_rect(Rect2(sx, base - 9, 26, 9), tr)
 	ci.draw_rect(Rect2(sx - 3, base - 14, 4, 14), tr)
 	ci.draw_rect(Rect2(sx + 25, base - 14, 4, 14), tr)
 	_lamp(ci, Vector2(sx + 34, base - 17), lit, det)
 	ci.draw_rect(Rect2(sx + 33, base - 11, 2, 11), ink)
+	if present > 2:
+		_figure(ci, r.position.x + 34, base, 5, false)
 	if r.size.x > 100.0:
 		ci.draw_rect(Rect2(r.end.x - 24, base - 20, 18, 13), ink)
 		ci.draw_rect(Rect2(r.end.x - 22, base - 18, 14, 9),
@@ -386,21 +418,24 @@ static func _draw_condo(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
 	_plant(ci, r.position.x + 38, base)
 
 static func _draw_hotel(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
-		det: Color, lit: bool, f: Facility) -> void:
+		det: Color, lit: bool, f: Facility, present: int) -> void:
 	_shell(ci, r, col, tr)
-	var base := r.end.y - 4.0
+	var base := r.end.y - SLAB
 	var ink := tr.darkened(0.2)
 	var beds := 1 if f.type == "hotel_single" else 2
 	var bw: float = minf((r.size.x - 14.0) / float(beds) - 3.0, 20.0)
 	for i in range(beds):
 		var bx := r.position.x + 4.0 + float(i) * (bw + 4.0)
-		# headboard, mattress, pillow, blanket
 		ci.draw_rect(Rect2(bx, base - 20, 2.5, 18), ink)
 		ci.draw_rect(Rect2(bx, base - 10, bw, 8), Color(0.94, 0.93, 0.90))
 		ci.draw_rect(Rect2(bx + bw * 0.42, base - 10, bw * 0.58, 8), det.darkened(0.1))
 		ci.draw_rect(Rect2(bx + 1, base - 13, bw * 0.32, 4), Color(0.98, 0.98, 0.96))
+		# a guest in the bed: a head on the pillow and a hump under the blanket
+		if present > i:
+			ci.draw_circle(Vector2(bx + bw * 0.20, base - 13), 2.6, SKIN)
+			ci.draw_rect(Rect2(bx + bw * 0.42, base - 12, bw * 0.34, 2.5),
+				det.darkened(0.25))
 		ci.draw_rect(Rect2(bx, base - 2, bw, 2), ink)
-	# bedside lamp and, in a suite, a little armchair
 	var lx := r.position.x + 4.0 + float(beds) * (bw + 4.0) + 3.0
 	if lx < r.end.x - 8.0:
 		_lamp(ci, Vector2(lx + 3, base - 15), lit, det)
@@ -417,18 +452,85 @@ static func _draw_hotel(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
 			ci.draw_line(Vector2(x + 3, base - 5), Vector2(x + 1, base - 3),
 				Color(0.24, 0.14, 0.07), 1.0)
 	elif f.dirty:
-		# an unmade bed and a service card on the door
 		ci.draw_rect(Rect2(r.position.x + 3, r.position.y + 5, r.size.x - 6, 4),
 			Color(0.62, 0.50, 0.30, 0.8))
 
 # --- trade -----------------------------------------------------------------
 
+## Each brand gets its own colour and its own sign. Five identical orange
+## boxes labelled differently in a menu is not five kinds of restaurant.
+const BRANDS := {
+	"Burger Bar":    [Color(0.90, 0.55, 0.20), Color(0.62, 0.26, 0.12), "burger"],
+	"Noodle House":  [Color(0.82, 0.42, 0.28), Color(0.46, 0.20, 0.16), "bowl"],
+	"Cucina cinese": [Color(0.80, 0.24, 0.24), Color(0.48, 0.12, 0.12), "lantern"],
+	"Chinese Cafe":  [Color(0.80, 0.24, 0.24), Color(0.48, 0.12, 0.12), "lantern"],
+	"Pizza Slice":   [Color(0.88, 0.72, 0.36), Color(0.44, 0.46, 0.24), "slice"],
+	"Coffee Shop":   [Color(0.58, 0.42, 0.30), Color(0.32, 0.22, 0.15), "cup"],
+	"The Grill":     [Color(0.46, 0.32, 0.32), Color(0.24, 0.16, 0.16), "flame"],
+	"Sushi Bar":     [Color(0.30, 0.40, 0.60), Color(0.16, 0.22, 0.38), "sushi"],
+	"Steakhouse":    [Color(0.62, 0.24, 0.22), Color(0.34, 0.12, 0.12), "flame"],
+	"Bistro":        [Color(0.72, 0.32, 0.34), Color(0.40, 0.16, 0.18), "glass"],
+	"Brasserie":     [Color(0.34, 0.48, 0.36), Color(0.18, 0.28, 0.20), "glass"],
+}
+
+static func brand_body(brand: String, fallback: Color) -> Color:
+	return BRANDS[brand][0] if BRANDS.has(brand) else fallback
+
+static func brand_trim(brand: String, fallback: Color) -> Color:
+	return BRANDS[brand][1] if BRANDS.has(brand) else fallback
+
+static func _sign(ci: CanvasItem, c: Vector2, brand: String, lit: bool) -> void:
+	var glyph := String(BRANDS[brand][2]) if BRANDS.has(brand) else ""
+	var on := Color(0.99, 0.92, 0.66) if lit else Color(0.70, 0.66, 0.56)
+	var hot := Color(0.95, 0.55, 0.20) if lit else Color(0.55, 0.36, 0.22)
+	match glyph:
+		"burger":
+			ci.draw_circle(c + Vector2(0, -2), 5.0, on)
+			ci.draw_rect(Rect2(c.x - 5, c.y - 1, 10, 2), Color(0.42, 0.62, 0.30))
+			ci.draw_rect(Rect2(c.x - 5, c.y + 1, 10, 3), Color(0.46, 0.27, 0.16))
+			ci.draw_rect(Rect2(c.x - 5, c.y + 4, 10, 3), on)
+		"bowl":
+			ci.draw_colored_polygon(PackedVector2Array([
+				c + Vector2(-7, 0), c + Vector2(7, 0), c + Vector2(4, 6),
+				c + Vector2(-4, 6)]), on)
+			for i in range(3):
+				ci.draw_line(c + Vector2(-3.0 + float(i) * 3.0, -1),
+					c + Vector2(-4.0 + float(i) * 3.0, -6), on, 1.0)
+		"lantern":
+			ci.draw_circle(c + Vector2(0, 1), 5.0, hot)
+			ci.draw_rect(Rect2(c.x - 3, c.y - 5, 6, 1.5), on)
+			ci.draw_rect(Rect2(c.x - 1, c.y + 5, 2, 4), on)
+		"slice":
+			ci.draw_colored_polygon(PackedVector2Array([
+				c + Vector2(0, -6), c + Vector2(6, 6), c + Vector2(-6, 6)]), on)
+			ci.draw_circle(c + Vector2(-2, 2), 1.4, Color(0.78, 0.22, 0.18))
+			ci.draw_circle(c + Vector2(2, 3), 1.4, Color(0.78, 0.22, 0.18))
+		"cup":
+			ci.draw_rect(Rect2(c.x - 5, c.y - 3, 9, 8), on)
+			ci.draw_arc(c + Vector2(5, 1), 3.0, -1.4, 1.4, 10, on, 1.5)
+			ci.draw_line(c + Vector2(-2, -6), c + Vector2(-3, -9), on, 1.0)
+		"flame":
+			ci.draw_colored_polygon(PackedVector2Array([
+				c + Vector2(-5, 6), c + Vector2(5, 6), c + Vector2(0, -7)]), hot)
+			ci.draw_colored_polygon(PackedVector2Array([
+				c + Vector2(-2, 6), c + Vector2(2, 6), c + Vector2(0, -1)]), on)
+		"sushi":
+			ci.draw_rect(Rect2(c.x - 7, c.y - 1, 6, 6), Color(0.96, 0.95, 0.92))
+			ci.draw_rect(Rect2(c.x - 7, c.y - 4, 6, 3), Color(0.86, 0.42, 0.34))
+			ci.draw_rect(Rect2(c.x + 1, c.y - 1, 6, 6), Color(0.96, 0.95, 0.92))
+			ci.draw_rect(Rect2(c.x + 1, c.y - 4, 6, 3), Color(0.30, 0.34, 0.30))
+		"glass":
+			ci.draw_colored_polygon(PackedVector2Array([
+				c + Vector2(-5, -6), c + Vector2(5, -6), c + Vector2(0, 2)]), on)
+			ci.draw_rect(Rect2(c.x - 1, c.y + 1, 2, 5), on)
+			ci.draw_rect(Rect2(c.x - 4, c.y + 6, 8, 1.5), on)
+
 static func _draw_food(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
-		det: Color, lit: bool, posh: bool) -> void:
+		det: Color, lit: bool, posh: bool, brand: String, present: int) -> void:
 	_shell(ci, r, col, tr)
-	var base := r.end.y - 4.0
+	var base := r.end.y - SLAB
 	var ink := tr.darkened(0.2)
-	# a striped awning across the top
+	# a striped awning across the top, in the brand's own colours
 	var stripe := 7.0
 	var x := r.position.x
 	var on := true
@@ -438,41 +540,53 @@ static func _draw_food(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
 		x += stripe
 		on = not on
 	ci.draw_rect(Rect2(r.position.x, r.position.y + 6, r.size.x, 1.5), ink)
+
 	if posh:
-		# tables with cloths, chairs either side, hanging lamps
 		var n := maxi(int(r.size.x / 46.0), 1)
 		for i in range(n):
-			var cx := r.position.x + (float(i) + 0.5) * r.size.x / float(n)
+			var cx := r.position.x + 24.0 + (float(i) + 0.5) * (r.size.x - 24.0) / float(n)
 			_lamp(ci, Vector2(cx, r.position.y + 14), lit, det)
+			if present > i * 2:
+				_figure(ci, cx - 15, base, i, true)
+			if present > i * 2 + 1:
+				_figure(ci, cx + 15, base, i + 3, true)
 			ci.draw_rect(Rect2(cx - 11, base - 11, 22, 2.5), ink)
 			ci.draw_rect(Rect2(cx - 10, base - 9, 20, 7), Color(0.95, 0.94, 0.91))
-			ci.draw_rect(Rect2(cx - 1.5, base - 3, 3, 3), ink)
 			_chair(ci, cx - 15, base, ink, true)
 			_chair(ci, cx + 15, base, ink, false)
 	else:
-		# a counter with stools and a menu board
 		ci.draw_rect(Rect2(r.position.x + 4, base - 13, r.size.x * 0.42, 3), ink)
 		ci.draw_rect(Rect2(r.position.x + 4, base - 11, r.size.x * 0.42, 11),
 			tr.lightened(0.1))
-		ci.draw_rect(Rect2(r.position.x + 6, r.position.y + 9,
-			r.size.x * 0.34, 9), det if lit else ink)
+		if present > 0:                    # somebody behind the counter
+			_figure(ci, r.position.x + 10, base - 12, 4, false)
 		var sx := r.position.x + r.size.x * 0.42 + 12.0
+		var k := 1
 		while sx < r.end.x - 6.0:
+			if present > k:
+				_figure(ci, sx, base - 2, k, true)
 			ci.draw_rect(Rect2(sx - 4, base - 9, 8, 2), ink)
 			ci.draw_rect(Rect2(sx - 1, base - 7, 2, 7), ink)
 			sx += 14.0
+			k += 1
+
+	# The sign goes on last, on a board of its own. Drawn earlier it ended up
+	# behind the counter, which is exactly where a sign should not be.
+	var board := Rect2(r.position.x + 5, r.position.y + 9, 26, 19)
+	ci.draw_rect(board, ink.darkened(0.25))
+	ci.draw_rect(board, tr.lightened(0.35), false, 1.5)
+	_sign(ci, board.get_center(), brand, lit)
 
 static func _draw_shop(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
-		det: Color, lit: bool) -> void:
+		det: Color, lit: bool, present: int) -> void:
 	_shell(ci, r, col, tr)
-	var base := r.end.y - 4.0
+	var base := r.end.y - SLAB
 	var ink := tr.darkened(0.2)
-	# fascia sign
 	ci.draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 7), tr)
 	ci.draw_rect(Rect2(r.position.x + 3, r.position.y + 2, r.size.x - 6, 3),
 		det if lit else tr.lightened(0.15))
-	# a display window with goods on shelves
-	var w := Rect2(r.position.x + 4, r.position.y + 11, r.size.x * 0.52, base - r.position.y - 13)
+	var w := Rect2(r.position.x + 4, r.position.y + 11, r.size.x * 0.52,
+		base - r.position.y - 13)
 	ci.draw_rect(w, WARM.lerp(col, 0.35) if lit else col.darkened(0.25))
 	ci.draw_rect(w, ink, false, 1.0)
 	for k in range(2):
@@ -483,35 +597,38 @@ static func _draw_shop(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
 		for j in range(3):
 			ci.draw_rect(Rect2(w.position.x + 4.0 + float(j) * 12.0, sy - 5, 6, 5),
 				det.darkened(0.15))
-	# counter and a shopkeeper's stool
+	if present > 1:
+		_figure(ci, w.end.x - 6, base, 2, false)      # a customer at the window
 	ci.draw_rect(Rect2(w.end.x + 6, base - 12, r.end.x - w.end.x - 10, 3), ink)
 	ci.draw_rect(Rect2(w.end.x + 6, base - 10, r.end.x - w.end.x - 10, 10),
 		tr.lightened(0.1))
+	if present > 0:
+		_figure(ci, w.end.x + 14, base - 13, 0, false)   # the shopkeeper
 
 # --- venues ----------------------------------------------------------------
 
 static func _draw_party(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
-		det: Color, lit: bool) -> void:
+		det: Color, lit: bool, present: int) -> void:
 	_shell(ci, r, col, tr)
-	var base := r.end.y - 4.0
+	var base := r.end.y - SLAB
 	var ink := tr.darkened(0.2)
-	# a chandelier
 	var c := Vector2(r.get_center().x, r.position.y + 16)
 	ci.draw_line(Vector2(c.x, r.position.y), c, ink, 1.5)
 	ci.draw_circle(c, 7.0, det if lit else ink)
 	for i in range(5):
 		var a := PI + float(i) * PI / 4.0
 		ci.draw_circle(c + Vector2(cos(a), -sin(a)) * 11.0, 2.5, det if lit else ink)
-	# round tables with cloths
 	var n := maxi(int(r.size.x / 60.0), 2)
 	for i in range(n):
 		var tx := r.position.x + (float(i) + 0.5) * r.size.x / float(n)
+		var here: int = present * (i + 1) / maxi(n, 1) - present * i / maxi(n, 1)
+		for k in range(mini(here, 3)):
+			_figure(ci, tx - 16.0 + float(k) * 16.0, base, i + k, false)
 		ci.draw_rect(Rect2(tx - 13, base - 14, 26, 3), ink)
 		ci.draw_colored_polygon(PackedVector2Array([
 			Vector2(tx - 13, base - 12), Vector2(tx + 13, base - 12),
 			Vector2(tx + 9, base), Vector2(tx - 9, base)]),
 			Color(0.96, 0.95, 0.92))
-	# balloons at the corners
 	for sx in [r.position.x + 10.0, r.end.x - 10.0]:
 		for k in range(2):
 			var bx: float = sx + float(k) * 7.0 - 3.0
@@ -520,15 +637,13 @@ static func _draw_party(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
 				Vector2(bx + 1, base), ink, 1.0)
 
 static func _draw_cinema(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
-		det: Color, lit: bool) -> void:
+		det: Color, lit: bool, present: int) -> void:
 	ci.draw_rect(r, Color(0.15, 0.14, 0.20))
-	var base := r.end.y - 4.0
-	# the marquee across the top
+	var base := r.end.y - SLAB
 	ci.draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 8), tr)
 	for i in range(int(r.size.x / 12.0)):
 		ci.draw_circle(Vector2(r.position.x + 7.0 + float(i) * 12.0, r.position.y + 4),
 			2.0, det if lit else det.darkened(0.6))
-	# the screen, and the projector beam when the lights are down
 	var sc := Rect2(r.position.x + 10, r.position.y + 16, r.size.x * 0.34, r.size.y * 0.42)
 	ci.draw_rect(sc, Color(0.90, 0.90, 0.88) if lit else Color(0.26, 0.26, 0.30))
 	ci.draw_rect(sc, Color(0.55, 0.54, 0.58), false, 1.5)
@@ -536,7 +651,7 @@ static func _draw_cinema(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
 		ci.draw_colored_polygon(PackedVector2Array([
 			Vector2(r.end.x - 14, r.position.y + 20), sc.end,
 			Vector2(sc.end.x, sc.position.y)]), Color(0.98, 0.96, 0.80, 0.10))
-	# raked rows of seats
+	var seats := 0
 	for row in range(4):
 		var y := base - 6.0 - float(row) * 7.0
 		if y < sc.end.y:
@@ -545,20 +660,23 @@ static func _draw_cinema(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
 			var x := r.position.x + 8.0 + float(i) * 11.0 + float(row) * 2.0
 			if x > r.end.x - 8.0:
 				break
+			# an audience: a head over the seat back where somebody is sitting
+			if seats < present:
+				ci.draw_circle(Vector2(x + 3.5, y - 4), 2.4, SKIN.darkened(0.15))
+			seats += 1
 			ci.draw_rect(Rect2(x, y, 7, 5), Color(0.44, 0.18, 0.20))
 			ci.draw_rect(Rect2(x, y - 3, 7, 3), Color(0.52, 0.22, 0.24))
 
 # --- services --------------------------------------------------------------
 
 static func _draw_service(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
-		det: Color, t: String) -> void:
+		det: Color, t: String, present: int) -> void:
 	_shell(ci, r, col, tr)
-	var base := r.end.y - 4.0
+	var base := r.end.y - SLAB
 	var ink := tr.darkened(0.2)
 	var c := Vector2(r.get_center().x, r.get_center().y)
 	match t:
 		"medical":
-			# a cross on the wall, a bed and a screen
 			ci.draw_rect(Rect2(r.position.x + 10, r.position.y + 8, 7, 20), det)
 			ci.draw_rect(Rect2(r.position.x + 3.5, r.position.y + 14.5, 20, 7), det)
 			ci.draw_rect(Rect2(r.end.x - 46, base - 11, 34, 3), ink)
@@ -566,13 +684,16 @@ static func _draw_service(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
 			ci.draw_rect(Rect2(r.end.x - 46, base - 15, 8, 5), Color(0.98, 0.98, 0.96))
 			ci.draw_rect(Rect2(r.end.x - 10, base - 22, 3, 22), ink)
 			ci.draw_rect(Rect2(r.end.x - 14, base - 26, 11, 6), ink)
+			for i in range(mini(present, 2)):
+				_figure(ci, r.position.x + 34.0 + float(i) * 14.0, base, i, false)
 		"security":
-			# a shield on the wall, a desk and a bank of monitors
 			ci.draw_colored_polygon(PackedVector2Array([
 				Vector2(r.position.x + 16, r.position.y + 7),
 				Vector2(r.position.x + 26, r.position.y + 12),
 				Vector2(r.position.x + 16, r.position.y + 26),
 				Vector2(r.position.x + 6, r.position.y + 12)]), det)
+			for i in range(mini(present, 2)):
+				_figure(ci, r.position.x + 40.0 + float(i) * 13.0, base, i, false)
 			ci.draw_rect(Rect2(r.end.x - 44, base - 12, 32, 3), ink)
 			ci.draw_rect(Rect2(r.end.x - 44, base - 10, 32, 10), tr.lightened(0.1))
 			for i in range(3):
@@ -581,10 +702,9 @@ static func _draw_service(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
 				ci.draw_rect(Rect2(r.end.x - 42.0 + float(i) * 11.0, base - 24, 9, 10),
 					ink, false, 1.0)
 		"recycling":
-			# bins and the sorting arrows
 			for i in range(3):
-				var a := float(i) * TAU / 3.0 - PI / 2.0
-				var p := Vector2(r.position.x + 30, c.y) + Vector2(cos(a), sin(a)) * 12.0
+				var a2 := float(i) * TAU / 3.0 - PI / 2.0
+				var p := Vector2(r.position.x + 30, c.y) + Vector2(cos(a2), sin(a2)) * 12.0
 				ci.draw_colored_polygon(PackedVector2Array([
 					p + Vector2(0, -7), p + Vector2(7, 5), p + Vector2(-7, 5)]), det)
 			var bx := r.position.x + 62.0
@@ -593,14 +713,17 @@ static func _draw_service(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
 				ci.draw_rect(Rect2(bx - 1, base - 21, 16, 4), tr)
 				bx += 20.0
 		_:
-			# housekeeping: a rack of carts, a bucket and a mop
 			var cx := r.position.x + 10.0
+			var k := 0
 			while cx < r.end.x - 22.0:
+				if present > k:
+					_figure(ci, cx + 17, base, k, false)
 				ci.draw_rect(Rect2(cx, base - 14, 13, 12), det)
 				ci.draw_rect(Rect2(cx, base - 18, 13, 5), tr)
 				ci.draw_circle(Vector2(cx + 3, base - 1), 2.0, ink)
 				ci.draw_circle(Vector2(cx + 10, base - 1), 2.0, ink)
 				cx += 20.0
+				k += 1
 			ci.draw_line(Vector2(r.end.x - 8, r.position.y + 8),
 				Vector2(r.end.x - 13, base - 6), ink, 2.0)
 			ci.draw_colored_polygon(PackedVector2Array([
@@ -736,30 +859,38 @@ static func _draw_stairs(ci: CanvasItem, r: Rect2, tr: Color, det: Color) -> voi
 		var py := r.end.y - float(i) * sh - sh
 		ci.draw_line(Vector2(px, py + thick), Vector2(px, py - 11.0), tr, 1.2)
 
+## The line from corner to corner of the run IS the step surface, and the
+## machine is built upwards from it. It used to be the top of the truss, with
+## the steps hanging eleven pixels below -- so the escalator appeared to hang
+## off the upper floor and never quite touch either one.
 static func _draw_escalator(ci: CanvasItem, r: Rect2, tr: Color, det: Color,
 		minute: int) -> void:
-	# Corner to corner: the run rect already spans slab surface to slab
-	# surface, so the ends land exactly on the two floors it joins.
-	var a := Vector2(r.position.x, r.end.y)
-	var b := Vector2(r.end.x, r.position.y)
+	var a := Vector2(r.position.x, r.end.y)          # foot, on the lower slab
+	var b := Vector2(r.end.x, r.position.y)          # head, on the upper slab
 	var n := (b - a).normalized()
-	var up := Vector2(-n.y, n.x) * 11.0
-	# the truss the steps ride on
-	ci.draw_colored_polygon(PackedVector2Array([a, b, b + up, a + up]),
-		tr.lightened(0.45))
-	ci.draw_polyline(PackedVector2Array([a, b, b + up, a + up, a]), OUTLINE, 1.2)
-	# steps, marching while the day is on
+	var up := Vector2(n.y, -n.x)                     # perpendicular, upwards
+
+	# the truss under the steps
+	ci.draw_colored_polygon(PackedVector2Array([
+		a, b, b - up * 5.0, a - up * 5.0]), tr.darkened(0.15))
+	# the step band itself, sitting on the line
+	ci.draw_colored_polygon(PackedVector2Array([
+		a, b, b + up * 4.0, a + up * 4.0]), tr.lightened(0.45))
+	ci.draw_polyline(PackedVector2Array([a, b, b + up * 4.0, a + up * 4.0, a]),
+		OUTLINE, 1.2)
+	# the treads, marching while the day is on
 	var phase := fmod(float(minute) * 0.35, 1.0)
 	for i in range(9):
 		var t := (float(i) + phase) / 9.0
 		if t > 1.0:
 			continue
 		var p := a.lerp(b, t)
-		ci.draw_line(p + up * 0.15, p + up * 0.85, det, 2.0)
-	# balustrade
-	ci.draw_line(a + up * 1.25, b + up * 1.25, tr, 2.2)
-	ci.draw_line(a + up * 0.95, a + up * 1.45, tr, 1.5)
-	ci.draw_line(b + up * 0.95, b + up * 1.45, tr, 1.5)
+		ci.draw_line(p + up * 0.5, p + up * 3.5, det, 1.8)
+	# balustrade and handrail, above the steps where they belong
+	ci.draw_line(a + up * 13.0, b + up * 13.0, tr, 2.2)
+	ci.draw_line(a + up * 4.0, a + up * 14.0, tr, 1.5)
+	ci.draw_line(b + up * 4.0, b + up * 14.0, tr, 1.5)
+	ci.draw_line(a + up * 8.0, b + up * 8.0, Color(tr.r, tr.g, tr.b, 0.45), 1.0)
 
 static func _hatch(ci: CanvasItem, r: Rect2, col: Color) -> void:
 	var x := r.position.x - r.size.y

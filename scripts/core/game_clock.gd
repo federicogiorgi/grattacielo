@@ -23,6 +23,13 @@ var _last_int_minute: int = -1
 func is_weekend() -> bool:
 	return day_in_quarter == Rules.WEEKEND_DAY
 
+## Minutes since the game began. The wall clock wraps at midnight, so
+## anything that has to measure an elapsed span needs this instead.
+func absolute_minute() -> float:
+	var day := float(((year - 1) * Rules.QUARTERS_PER_YEAR + (quarter - 1))
+		* Rules.DAYS_PER_QUARTER + day_in_quarter)
+	return day * 24.0 * 60.0 + fmod(minute, 24.0 * 60.0)
+
 func minute_of_day() -> int:
 	return int(minute) % (24 * 60)
 

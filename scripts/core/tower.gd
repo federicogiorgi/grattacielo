@@ -472,6 +472,30 @@ func _touch(row: int) -> void:
 
 # --- demolition ------------------------------------------------------------
 
+## Remove a run of lobby or empty floor again. Only used by undo, and only
+## where nothing has since been built on top of it.
+func unbuild(type: String, seg: int, row: int, w: int) -> void:
+	for c in range(seg, seg + w):
+		if not in_bounds(c, row):
+			continue
+		if occupancy[idx(c, row)] != -1 or shaft_grid[idx(c, row)] != -1:
+			continue
+		if transit_grid[idx(c, row)] != -1:
+			continue
+		if row > 0 and built(c, row + 1):
+			continue          # something is standing on it
+		structure[idx(c, row)] = VOID
+	if type == "lobby" and row == 0:
+		lobby_left = -1
+		lobby_right = -1
+		for c in range(COLS):
+			if structure_at(c, 0) == LOBBY:
+				if lobby_left < 0:
+					lobby_left = c
+				lobby_right = c
+	_index_dirty = true
+	structure_changed.emit()
+
 func bulldoze(seg: int, row: int) -> Dictionary:
 	var out := {"ok": false, "kind": "", "refund": 0, "id": -1}
 	var sid := shaft_id_at(seg, row)

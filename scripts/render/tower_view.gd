@@ -59,7 +59,7 @@ func _draw() -> void:
 	var seg_hi := mini(int(ceil(view.end.x / Art.SEG_W)) + 1, FacilityDB.MAP_SEGMENTS - 1)
 
 	_draw_structure(g.tower, row_lo, row_hi, seg_lo, seg_hi, minute)
-	_draw_facilities(g.tower, row_lo, row_hi, seg_lo, seg_hi, minute)
+	_draw_facilities(g, row_lo, row_hi, seg_lo, seg_hi, minute)
 	_draw_shafts(g.tower, row_lo, row_hi)
 	_draw_people(g, row_lo, row_hi, seg_lo, seg_hi)
 	_draw_events(g, view)
@@ -134,8 +134,35 @@ func _draw_structure(tw: Tower, row_lo: int, row_hi: int, seg_lo: int, seg_hi: i
 			else:
 				Art.draw_empty_floor(self, start, row, w)
 
-func _draw_facilities(tw: Tower, row_lo: int, row_hi: int, seg_lo: int, seg_hi: int,
+## How many of the people who belong to a facility are standing in it now.
+## The ones with named occupants are counted for real; the trade counts its
+## customers instead, since a shop's crowd never belongs to the shop.
+func _present(g, f: Facility) -> int:
+	match f.kind():
+		FacilityDB.Kind.FOOD, FacilityDB.Kind.VENUE:
+			var h := float(g.clock.minute_of_day()) / 60.0
+			var open := h >= 9.0 and h < 23.0
+			if not open:
+				return 0
+			return mini(f.patrons_today, 8)
+		FacilityDB.Kind.SHOP:
+			var n := 0
+			for sid in f.occupants:
+				var s: Sim = g.engine.sims.get(sid)
+				if s != null and s.state == Sim.State.RESTING:
+					n += 1
+			return n + (1 if f.patrons_today > 4 else 0)
+		_:
+			var m := 0
+			for sid in f.occupants:
+				var s2: Sim = g.engine.sims.get(sid)
+				if s2 != null and s2.state == Sim.State.RESTING and s2.row == f.row:
+					m += 1
+			return m
+
+func _draw_facilities(g, row_lo: int, row_hi: int, seg_lo: int, seg_hi: int,
 		minute: int) -> void:
+	var tw: Tower = g.tower
 	var seen := {}
 	# Stairs and escalators are drawn last, on top of everything else on their
 	# floors: they are structure laid over the building, and they paint no
@@ -149,7 +176,7 @@ func _draw_facilities(tw: Tower, row_lo: int, row_hi: int, seg_lo: int, seg_hi: 
 				continue
 			if not seen.has(f.id):
 				seen[f.id] = true
-				Art.draw_facility(self, f, minute, _tint_for(f))
+				Art.draw_facility(self, f, minute, _tint_for(f), _present(g, f))
 			c = maxi(c + 1, f.seg + f.w)
 	# Stairs and escalators live on their own layer and are drawn last, over
 	# whatever they cross. There are at most sixty-four of them, so listing

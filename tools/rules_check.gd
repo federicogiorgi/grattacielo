@@ -233,6 +233,18 @@ func _letting_timing() -> void:
 		% _vacant(g, FacilityDB.Kind.OFFICE))
 	ok(_sold(g) > 0, "and the flats have been viewed and sold")
 
+	# An office put up in the afternoon waits for tomorrow morning: letting is
+	# a morning business and stops at noon.
+	g.try_place("office", 148, 1)
+	var late: Facility = null
+	for f in g.tower.all_of_kind(FacilityDB.Kind.OFFICE):
+		if f.seg == 148:
+			late = f
+	ok(late != null, "the afternoon office was built")
+	_run_to(g, 17 * 60)
+	ok(late == null or late.occupants.is_empty(),
+		"nothing is let after noon, however good the tower is")
+
 	_run_to(g, 21 * 60)
 	var room: Facility = g.tower.all_of_type("hotel_twin")[0]
 	ok(not room.occupants.is_empty(), "a room built today still takes guests tonight")

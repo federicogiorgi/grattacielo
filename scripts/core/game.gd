@@ -49,10 +49,18 @@ var save_path: String = "user://grattacielo.save"
 # Flats are viewed in the late morning; everything else lets all working day.
 const CONDO_SALE_FROM := 9 * 60
 const CONDO_SALE_TO := 12 * 60
+# Tenants are shown round in the morning and decide before lunch. Nothing is
+# let in the afternoon: if you want a floor occupied today, build it early.
 const LETTING_FROM := 7 * 60
-const LETTING_TO := 19 * 60
+const LETTING_TO := 12 * 60
 const LETTING_EVERY := 30
 const LETTING_SHARE := 0.34
+
+## The last thing built, and when. You get two tower hours to change your
+## mind, which is long enough to notice a mistake and short enough that it
+## cannot be used to undo a decision the simulation has already acted on.
+const UNDO_MINUTES := 120.0
+var last_build: Dictionary = {}
 
 var weather: String = "clear"
 var _weather_bag: Array[String] = []
@@ -693,6 +701,11 @@ func try_place(type: String, seg: int, row: int, drag_w: int = -1,
 	var f := tower.place(type, seg, row, w)
 	if f != null:
 		_after_place(f)
+		_remember_build({"what": "facility", "id": f.id, "cost": total,
+			"name": String(FacilityDB.DEFS[type]["name"])})
+	else:
+		_remember_build({"what": "structure", "type": type, "seg": seg, "row": row,
+			"w": w, "cost": total, "name": String(FacilityDB.DEFS[type]["name"])})
 	say("%s  %s" % [FacilityDB.DEFS[type]["name"], Economy.money(total)])
 	return {"ok": true, "reason": ""}
 
@@ -741,6 +754,8 @@ func _place_shaft(type: String, seg: int, row: int, top: int) -> Dictionary:
 		existing.add_car(row)
 		tower.mark_dirty()
 		tower_changed.emit()
+		_remember_build({"what": "car", "id": existing.id, "cost": cc,
+			"name": "Elevator car"})
 		say("Car added  " + Economy.money(cc))
 		return {"ok": true, "reason": ""}
 
@@ -759,6 +774,8 @@ func _place_shaft(type: String, seg: int, row: int, top: int) -> Dictionary:
 		return _fail("Not enough money for construction")
 	econ.spend_construction(cost)
 	var s := tower.place_shaft(type, seg, bottom, t)
+	_remember_build({"what": "shaft", "id": s.id, "cost": cost,
+		"name": String(d["name"])})
 	say("%s  %s" % [d["name"], Economy.money(cost)])
 	selected_shaft = s.id
 	return {"ok": true, "reason": ""}
@@ -790,6 +807,54 @@ func _limit_check(type: String) -> String:
 			if tower.count_of_type("cathedral") >= FacilityDB.LIMITS["cathedral"]:
 				return "Only one cathedral"
 	return ""
+
+func _remember_build(entry: Dictionary) -> void:
+	entry["at"] = clock.absolute_minute()
+	last_build = entry
+
+## How long is left to take the last build back, in tower minutes.
+func undo_left() -> float:
+	if last_build.is_empty():
+		return 0.0
+	return maxf(UNDO_MINUTES - (clock.absolute_minute() - float(last_build["at"])), 0.0)
+
+func can_undo() -> bool:
+	return undo_left() > 0.0
+
+## Take the last thing back and hand the money over. Tenants who moved in
+## during those two hours go with it -- you are unbuilding the room they are
+## standing in, which is the same as bulldozing it.
+func undo_build() -> void:
+	if not can_undo():
+		say("There is nothing left to undo.")
+		return
+	var e := last_build
+	last_build = {}
+	match String(e["what"]):
+		"facility":
+			var f: Facility = tower.facilities.get(int(e["id"]))
+			if f == null:
+				return
+			if f.type == "condo" and f.sold:
+				econ.charge(f.sale_price, "Condominium refunded")
+			_evict(f)
+			tower.bulldoze(f.seg, f.row)
+		"shaft":
+			var s: Shaft = tower.shafts.get(int(e["id"]))
+			if s == null:
+				return
+			tower.bulldoze(s.seg, s.bottom_row)
+		"car":
+			var s2: Shaft = tower.shafts.get(int(e["id"]))
+			if s2 == null or s2.cars.size() <= 1:
+				return
+			s2.cars.pop_back()
+		"structure":
+			tower.unbuild(String(e["type"]), int(e["seg"]), int(e["row"]), int(e["w"]))
+	econ.earn_other(int(e["cost"]), "Undone: " + String(e["name"]))
+	Audio.play("wreck")
+	say("Undone: %s, %s refunded." % [String(e["name"]), Economy.money(int(e["cost"]))])
+	tower_changed.emit()
 
 func _fail(reason: String) -> Dictionary:
 	Audio.play("deny")
