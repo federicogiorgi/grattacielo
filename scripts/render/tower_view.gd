@@ -48,7 +48,7 @@ func _draw() -> void:
 	# The moon runs through its phases over eight days -- a year here is only
 	# twelve, so a real 29-day month would barely move. This way it is a
 	# different moon most nights, which is the point of drawing one.
-	_draw_sky(view, minute, moon_phase(g.clock))
+	_draw_sky(view, g.clock.minute_of_day_f(), moon_phase(g.clock))
 	_draw_ground(view)
 
 	var row_lo := maxi(int(floor(-view.end.y / Art.ROW_H)) - 1, FacilityDB.ROW_MIN)
@@ -79,7 +79,7 @@ static func moon_phase(clock: GameClock) -> float:
 		day_index += 1
 	return fposmod(float(day_index) / 8.0, 1.0)
 
-func _draw_sky(view: Rect2, minute: int, moon_phase: float) -> void:
+func _draw_sky(view: Rect2, minute: float, moon_phase: float) -> void:
 	var sky := Art.sky_colour(minute)
 	draw_rect(Rect2(view.position, Vector2(view.size.x, -view.position.y + view.size.y)), sky)
 	if Art.is_dark(minute):
@@ -94,9 +94,9 @@ func _draw_sky(view: Rect2, minute: int, moon_phase: float) -> void:
 				Color(1, 1, 1, seed_rng.randf_range(0.3, 0.9)))
 	# The sun rises in the east at six and sets in the west at eighteen; the
 	# moon takes the other twelve hours.
-	var day := minute >= 6 * 60 and minute < 18 * 60
-	var t01 := (float(minute) - 6.0 * 60.0) / (12.0 * 60.0) if day \
-		else (fposmod(float(minute) - 18.0 * 60.0, 24.0 * 60.0)) / (12.0 * 60.0)
+	var day := minute >= 6.0 * 60.0 and minute < 18.0 * 60.0
+	var t01 := (minute - 6.0 * 60.0) / (12.0 * 60.0) if day \
+		else fposmod(minute - 18.0 * 60.0, 24.0 * 60.0) / (12.0 * 60.0)
 	var orb := Vector2(view.position.x + view.size.x * (0.10 + 0.80 * t01),
 		-(150.0 + sin(t01 * PI) * 320.0))
 	if moon_demo:

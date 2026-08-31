@@ -172,6 +172,7 @@ func _transport() -> void:
 	_floor_is_whole()
 	_shafts_stretch()
 	_moon_holds_all_night()
+	_one_rule_for_shafts()
 	ok(Rules.SKY_LOBBY_EVERY == 15, "sky lobbies every fifteen floors")
 
 ## How far the legs alone will carry somebody. The manual gives two numbers
@@ -200,8 +201,9 @@ func _shafts_stretch() -> void:
 	var g = load("res://scripts/core/game.gd").new()
 	root.add_child(g)
 	g.new_game()
+	g.econ.funds = 100000000     # this one builds a whole tower to climb
 	g.try_place("lobby", 40, 0, 100)
-	for r in range(1, 12):
+	for r in range(1, 14):
 		g.try_place("floor", 70, r, 8)
 	g.try_place("elevator", 60, 0, 0)
 	var s = g.tower.shaft_at(60, 0)
@@ -214,6 +216,45 @@ func _shafts_stretch() -> void:
 	# past the top of the building there is nothing to run through
 	ok(g.tower.resize_shaft(s, s.bottom_row, 40) != "", "but not past the top floor")
 	ok(g.tower.resize_shaft(s, s.bottom_row, 200) != "", "nor past its own reach")
+
+	# The whole point: a shaft runs THROUGH the building, not around it. Fill
+	# every storey it wants with offices and it must still go up.
+	for r in range(1, 12):
+		for c in range(80, 130, 12):
+			g.try_place("office", c, r, -1)
+	var offices: int = g.tower.all_of_type("office").size()
+	ok(offices > 20, "the floors above are full, %d offices" % offices)
+	ok(g.tower.resize_shaft(s, s.bottom_row, 11) == "",
+		"and the lift passes over every one of them")
+	ok(s.top_row == 11, "reaching the top floor")
+	ok(g.tower.all_of_type("office").size() == offices,
+		"without demolishing a single tenant")
+
+	# What it may not cross is another vertical thing. A flight of stairs is
+	# laid across the storey above it, in the shaft's own column.
+	g.try_place("stairs", 58, 12, -1)
+	ok(g.tower.transit_id_at(60, 12) != -1, "a staircase crosses floor 12")
+	var over_stairs: String = g.tower.resize_shaft(s, s.bottom_row, 12)
+	ok(over_stairs != "", "but never a staircase: " + over_stairs)
+	ok(s.top_row == 11, "and it stays where it was")
+
+	# A second lift, in a column full of offices, is fine.
+	var put: Dictionary = g.try_place("elevator", 100, 0, 0)
+	var s2 = g.tower.shaft_at(100, 0)
+	ok(s2 != null, "a second lift goes in, in a column of offices (%s)"
+		% String(put.get("reason", "")))
+	ok(s2 != null and g.tower.resize_shaft(s2, s2.bottom_row, 6) == "",
+		"and climbs its own column of offices")
+	# but not through the first one
+	ok(g.tower.resize_shaft(s, s.bottom_row, 5) == "", "the first shrinks back")
+	var s3 = g.tower.shaft_at(100, 0)
+	ok(s3 != null, "still there")
+
+	# And a room may not be built under a lift, for the reason stairs may not:
+	# it would be a room nobody could see.
+	var under: Dictionary = g.tower.check_place("office", s.seg, 5, -1)
+	ok(not under.ok, "no room under a lift")
+	ok(under.reason.contains("elevator"), "and it says which: " + under.reason)
 
 ## One night, one moon.
 func _moon_holds_all_night() -> void:
@@ -231,6 +272,33 @@ func _moon_holds_all_night() -> void:
 	g.clock.minute = 13.0 * 60.0
 	ok(not is_equal_approx(view.moon_phase(g.clock), evening),
 		"and turns over in the afternoon, when nobody is looking")
+
+## One rule, in one place. The lift refused to cross an office for a week
+## because game.gd tested range_free itself instead of asking the tower -- so
+## the tower's rule was right and nothing read it. A second copy of a rule is
+## a rule that will be half-fixed.
+func _one_rule_for_shafts() -> void:
+	var f := FileAccess.open("res://scripts/core/game.gd", FileAccess.READ)
+	ok(f != null, "game.gd is readable")
+	if f == null:
+		return
+	var src := f.get_as_text()
+	var at := src.find("func _place_shaft")
+	var end := src.find("
+func ", at + 10)
+	var body := src.substr(at, end - at)
+	# Read the code, not the comments -- the paragraph above _place_shaft
+	# explaining what it must not do would otherwise fail this on its own.
+	var code := ""
+	for line in body.split("
+"):
+		var t2 := String(line).strip_edges()
+		if t2.begins_with("#"):
+			continue
+		code += t2 + "
+"
+	ok(not code.contains("range_free"),
+		"placing a shaft asks tower.shaft_blocked, never range_free itself")
 
 func _climb_limits() -> void:
 	var t := Tower.new()

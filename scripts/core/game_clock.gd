@@ -33,6 +33,12 @@ func absolute_minute() -> float:
 func minute_of_day() -> int:
 	return int(minute) % (24 * 60)
 
+## The same reading, unrounded. The sky uses it: a minute is between one and
+## eight real seconds depending on the speed, so a sun placed on whole minutes
+## hops across the window instead of crossing it.
+func minute_of_day_f() -> float:
+	return fposmod(minute, 24.0 * 60.0)
+
 func hour() -> int:
 	return minute_of_day() / 60
 

@@ -770,11 +770,13 @@ func _place_shaft(type: String, seg: int, row: int, top: int) -> Dictionary:
 		return _fail(String(chk["reason"]))
 	if t - bottom + 1 > int(d.get("max_span", 30)):
 		return _fail("At most %d floors" % int(d.get("max_span", 30)))
+	# One rule for what a lift may run through, and it lives in the tower. This
+	# loop used to test range_free itself, which is why a shaft refused to cross
+	# an office it is perfectly happy to be drawn over.
 	for r in range(bottom, t + 1):
-		if not tower.range_built(seg, r, w):
-			return _fail("No floor at " + FacilityDB.row_label(r))
-		if not tower.range_free(seg, r, w):
-			return _fail("Floor " + FacilityDB.row_label(r) + " is occupied")
+		var blocked := tower.shaft_blocked(seg, r, w)
+		if blocked != "":
+			return _fail(blocked)
 	var cost: int = int(chk["cost"])
 	if not econ.can_afford(cost):
 		return _fail("Not enough money for construction")

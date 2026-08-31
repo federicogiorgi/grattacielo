@@ -715,7 +715,7 @@ func _shaft_drag(c: Vector2i) -> void:
 	elif err != drag_shaft_refusal:
 		drag_shaft_refusal = err
 		Audio.play("deny")
-		Game.say(err + " -- clear it before the shaft can pass")
+		Game.say(err)
 
 func _shaft_release() -> void:
 	if drag_shaft != -1 and not drag_shaft_moved:

@@ -71,7 +71,7 @@ static func cell_rect(seg: int, row: int, w: int = 1, h: int = 1) -> Rect2:
 		float(w) * SEG_W, float(h) * ROW_H)
 
 ## The sky colour at a given minute of the day.
-static func sky_colour(minute: int) -> Color:
+static func sky_colour(minute: float) -> Color:
 	var h := float(minute) / 60.0
 	if h < 4.5:
 		return SKY_NIGHT
@@ -123,7 +123,7 @@ static func draw_moon(ci: CanvasItem, c: Vector2, rad: float, phase: float) -> v
 		if lit:
 			ci.draw_circle(q, rad * 0.13, Color(0.84, 0.84, 0.79))
 
-static func is_dark(minute: int) -> bool:
+static func is_dark(minute: float) -> bool:
 	var h := float(minute) / 60.0
 	return h < 6.0 or h >= 19.5
 
@@ -958,12 +958,13 @@ static func draw_shaft(ci: CanvasItem, s: Shaft, _row_top: int, _row_bot: int) -
 	var x := float(s.seg) * SEG_W
 	var y0 := -float(s.top_row + 1) * ROW_H
 	var y1 := -float(s.bottom_row) * ROW_H
-	var col := body(s.type)
-	ci.draw_rect(Rect2(x, y0, w, y1 - y0), col)
-	# guide rails and counterweight track
-	ci.draw_rect(Rect2(x + 1.5, y0, 2, y1 - y0), trim(s.type).lightened(0.25))
-	ci.draw_rect(Rect2(x + w - 3.5, y0, 2, y1 - y0), trim(s.type).lightened(0.25))
-	ci.draw_rect(Rect2(x, y0, w, y1 - y0), OUTLINE, false, 1.0)
+	# The shaft is a HOLE, not a box. Only the two guide rails are drawn, so
+	# whatever the lift is running past -- offices, a hotel corridor, the lobby
+	# -- shows through between them. The cars are the opaque part.
+	ci.draw_rect(Rect2(x, y0, 2.5, y1 - y0), OUTLINE)
+	ci.draw_rect(Rect2(x + w - 2.5, y0, 2.5, y1 - y0), OUTLINE)
+	ci.draw_rect(Rect2(x + 0.5, y0, 1.5, y1 - y0), trim(s.type).lightened(0.25))
+	ci.draw_rect(Rect2(x + w - 2.0, y0, 1.5, y1 - y0), trim(s.type).lightened(0.25))
 	# the motor room on top, with its sheave
 	ci.draw_rect(Rect2(x, y0 - 10, w, 10), trim(s.type))
 	ci.draw_rect(Rect2(x, y0 - 10, w, 10), OUTLINE, false, 1.0)

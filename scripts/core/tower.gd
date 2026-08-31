@@ -92,11 +92,30 @@ func transit_id_at(seg: int, row: int) -> int:
 func transit_at(seg: int, row: int) -> Facility:
 	return facilities.get(transit_id_at(seg, row), null)
 
-## Free for a room or a shaft. Stairs count as occupying: a lift may not run
-## through a staircase, and a room built under one would never be seen.
+## Free for a ROOM. Stairs and shafts both count as occupying, because both are
+## drawn over the top: a room built under either would never be seen. What they
+## may themselves cross is decided by check_place and shaft_blocked.
 func cell_free(seg: int, row: int) -> bool:
 	return facility_id_at(seg, row) == -1 and shaft_id_at(seg, row) == -1 \
 		and transit_id_at(seg, row) == -1
+
+## What stops a lift shaft occupying this run of cells, or "" if nothing does.
+##
+## A shaft is an OVERLAY, like a staircase: it runs through rooms rather than
+## displacing them, and is drawn as two rails with the floor showing between
+## them. It only wants a floor to exist and no other vertical thing in the way.
+## Refusing to pass an occupied storey meant a lift could never be extended up
+## a tower anybody had actually finished building.
+func shaft_blocked(seg: int, row: int, w: int, ignore_id: int = -1) -> String:
+	if not range_built(seg, row, w):
+		return "There is no floor at " + FacilityDB.row_label(row)
+	for c in range(seg, seg + w):
+		var other := shaft_id_at(c, row)
+		if other != -1 and other != ignore_id:
+			return "Another elevator crosses " + FacilityDB.row_label(row)
+		if transit_id_at(c, row) != -1:
+			return "Stairs cross " + FacilityDB.row_label(row)
+	return ""
 
 func range_free(seg: int, row: int, w: int) -> bool:
 	for c in range(seg, seg + w):
@@ -259,10 +278,19 @@ func check_place(type: String, seg: int, row: int, w_override: int = -1,
 			res.reason = "No floor above"
 			return res
 
-	# Multi-storey things need every one of their rows clear.
+	# Multi-storey things need every one of their rows clear. A lift or a
+	# staircase crossing the site says so by name: both are drawn over the top
+	# of whatever they pass, so a room here would be a room nobody can see.
 	for r in range(row, row + h):
 		if not range_free(seg, r, w):
 			res.reason = "Occupied"
+			for c in range(seg, seg + w):
+				if shaft_id_at(c, r) != -1:
+					res.reason = "An elevator runs through here"
+					break
+				if transit_id_at(c, r) != -1:
+					res.reason = "Stairs run through here"
+					break
 			return res
 
 	if type == "escalator" and not _escalator_site_ok(seg, row):
@@ -309,11 +337,9 @@ func _check_shaft(type: String, seg: int, bottom: int, _h: int) -> Dictionary:
 	if shafts.size() >= FacilityDB.LIMITS["shafts"]:
 		res.reason = "At most %d elevator shafts" % FacilityDB.LIMITS["shafts"]
 		return res
-	if not range_built(seg, bottom, w):
-		res.reason = "There is no floor here"
-		return res
-	if not range_free(seg, bottom, w):
-		res.reason = "Occupied"
+	var blocked := shaft_blocked(seg, bottom, w)
+	if blocked != "":
+		res.reason = blocked
 		return res
 	res.ok = true
 	res.cost = int(d["cost"]) + int(d["car_cost"])   # a shaft arrives with one car
@@ -449,10 +475,9 @@ func resize_shaft(s: Shaft, new_bottom: int, new_top: int) -> String:
 	var w := s.width()
 	for r in range(new_bottom, new_top + 1):
 		if not s.covers_row(r):
-			if not range_built(s.seg, r, w):
-				return "No floor at " + FacilityDB.row_label(r)
-			if not range_free(s.seg, r, w):
-				return "Floor " + FacilityDB.row_label(r) + " is occupied"
+			var blocked := shaft_blocked(s.seg, r, w, s.id)
+			if blocked != "":
+				return blocked
 	for c in s.cars:
 		if c.home_row < new_bottom or c.home_row > new_top:
 			return "That would leave a car outside the shaft"
