@@ -24,9 +24,6 @@ Audio="*res://scripts/core/audio.gd"
 
 window/size/viewport_width=1360
 window/size/viewport_height=800
-window/size/resizable=true
-; canvas_items + expand: a smaller window scales everything down rather than
-; cropping it; a larger one scales up and shows a little more of the world.
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 

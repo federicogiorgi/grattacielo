@@ -36,3 +36,7 @@ desktop.ini
 work/
 obsolete/
 shot*.png
+
+# Federico
+extras/
+build/
