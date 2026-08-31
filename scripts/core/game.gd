@@ -31,7 +31,16 @@ var paused: bool = false
 var manual_paused: bool = false
 var _pause_holders: Dictionary = {}
 var speed_index: int = 1
-const SPEEDS := [0.5, 1.0, 2.0, 4.0]
+## The player-facing multiplier. x1 is the pace the tower is designed to be
+## watched at; the top two are for skipping a quiet night, which is why they
+## jump rather than double. Rules.HOUR_SPEED underneath already crawls through
+## rush hour and races through the small hours, so x10 at four in the morning
+## is not the same amount of simulation as x10 at nine.
+const SPEEDS := [0.5, 1.0, 2.0, 5.0, 10.0]
+
+## How the multiplier is written on the button: 0.5, not 0.50; 10, not 10.0.
+static func speed_text(v: float) -> String:
+	return ("%.1f" % v).trim_suffix(".0")
 
 var last_message: String = ""
 var selected_facility: int = -1

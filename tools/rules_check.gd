@@ -173,6 +173,7 @@ func _transport() -> void:
 	_shafts_stretch()
 	_moon_holds_all_night()
 	_one_rule_for_shafts()
+	_speeds()
 	ok(Rules.SKY_LOBBY_EVERY == 15, "sky lobbies every fifteen floors")
 
 ## How far the legs alone will carry somebody. The manual gives two numbers
@@ -335,6 +336,23 @@ func ", at + 10)
 "
 	ok(not code.contains("range_free"),
 		"placing a shaft asks tower.shaft_blocked, never range_free itself")
+
+## The speed buttons, and the label under them. x1 has to BE one -- the button
+## saying "x1" while the game runs at some other rate is the sort of thing
+## nobody checks and everybody trusts.
+func _speeds() -> void:
+	var g = load("res://scripts/core/game.gd").new()
+	root.add_child(g)
+	ok(g.SPEEDS == [0.5, 1.0, 2.0, 5.0, 10.0], "five speeds: %s" % str(g.SPEEDS))
+	ok(g.speed_index == 1 and g.SPEEDS[g.speed_index] == 1.0,
+		"a new game opens at x1")
+	ok(g.speed_text(0.5) == "0.5" and g.speed_text(1.0) == "1"
+		and g.speed_text(10.0) == "10",
+		"written as 0.5, 1, 10 -- never 1.0")
+	# the clock must never be asked for more than it can catch up on in a frame
+	var fastest: float = Rules.HOUR_SPEED.max() * Rules.CLOCK_SCALE * g.SPEEDS[4]
+	ok(fastest / 60.0 < 240.0,
+		"even the fastest hour at x10 fits one frame, %.1f minutes" % (fastest / 60.0))
 
 func _climb_limits() -> void:
 	var t := Tower.new()

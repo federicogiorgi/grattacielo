@@ -371,7 +371,7 @@ func _build() -> void:
 	var faster := UIKit.button(">", func(): _speed(1))
 	faster.custom_minimum_size = Vector2(26, 26)
 	row.add_child(faster)
-	speed_label = UIKit.label("x1", 11)
+	speed_label = UIKit.label("x" + Game.speed_text(Game.SPEEDS[Game.speed_index]), 11)
 	row.add_child(speed_label)
 
 	undo_btn = UIKit.button("Undo", func(): Game.undo_build())
@@ -435,7 +435,7 @@ func sync_pause_button() -> void:
 
 func _speed(d: int) -> void:
 	Game.speed_index = clampi(Game.speed_index + d, 0, Game.SPEEDS.size() - 1)
-	speed_label.text = "x%s" % str(Game.SPEEDS[Game.speed_index])
+	speed_label.text = "x" + Game.speed_text(Game.SPEEDS[Game.speed_index])
 
 func _pick(id: String) -> void:
 	if not Game.can_use_tool(id):
