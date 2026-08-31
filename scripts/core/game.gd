@@ -43,6 +43,11 @@ var save_path: String = "user://grattacielo.save"
 
 ## Today's weather. Scenery, and the one thing that moves trade on its own:
 ## "rainy days get about half the normal traffic".
+## Flats are bought in the late morning, when an estate agent would actually
+## be showing them -- not in the small hours with everything else. It is also
+## the one move-in the player is likely to be watching.
+const CONDO_SALE_MINUTE := 10 * 60 + 30
+
 var weather: String = "clear"
 var _weather_bag: Array[String] = []
 
@@ -191,6 +196,8 @@ func _on_minute(m: int) -> void:
 		_explode(int(b["seg"]), int(b["row"]))
 	if m == 3 * 60:
 		_rest_period()
+	if m == CONDO_SALE_MINUTE:
+		_condo_sales()
 
 # --- the daily cycle -------------------------------------------------------
 
@@ -390,12 +397,9 @@ func _rest_period() -> void:
 					_evict(f)
 					moved_out += 1
 			FacilityDB.Kind.CONDO:
-				if not f.sold:
-					if int(quota[FacilityDB.Kind.CONDO]) > 0 and _reachable(f):
-						quota[FacilityDB.Kind.CONDO] = int(quota[FacilityDB.Kind.CONDO]) - 1
-						_sell_condo(f)
-						moved_in += 1
-				elif f.eval == Rules.Eval.C:
+				# Buyers arrive at CONDO_SALE_MINUTE, not here. What the rest
+				# period still does is hand the money back to anyone leaving.
+				if f.sold and f.eval == Rules.Eval.C:
 					econ.charge(f.sale_price, "Condominium refunded")
 					f.sold = false
 					_evict(f)
@@ -417,6 +421,26 @@ func _rest_period() -> void:
 		say("%d new tenants." % moved_in)
 	_check_stars()
 	_check_demands()
+
+## The late-morning viewing. Same earned-growth rule as everything else: a
+## flat only sells if some other flat is happy enough to be worth telling a
+## friend about, or if none has sold yet at all.
+func _condo_sales() -> void:
+	var quota := _growth_quota()
+	var sold := 0
+	for fid in tower.facilities.keys():
+		var f: Facility = tower.facilities.get(fid)
+		if f == null or f.wrecked or f.kind() != FacilityDB.Kind.CONDO or f.sold:
+			continue
+		if int(quota[FacilityDB.Kind.CONDO]) <= 0:
+			break
+		if not _reachable(f):
+			continue
+		quota[FacilityDB.Kind.CONDO] = int(quota[FacilityDB.Kind.CONDO]) - 1
+		_sell_condo(f)
+		sold += 1
+	if sold > 0:
+		say("%d flat%s sold this morning." % [sold, "" if sold == 1 else "s"])
 
 ## How many new tenants the tower has earned tonight, per kind.
 func _growth_quota() -> Dictionary:

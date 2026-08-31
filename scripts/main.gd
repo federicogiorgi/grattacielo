@@ -24,6 +24,7 @@ var options_menu: MenuButton
 
 var pan_from := Vector2.ZERO
 var panning := false
+var right_from := Vector2.ZERO   # where a right press started, to tell a click from a drag
 var drag_start := Vector2i.ZERO
 var dragging := false
 var drag_placed: int = -999999
@@ -135,6 +136,9 @@ func _demo_tower() -> void:
 					FacilityDB.Kind.SHOP]:
 				f.eval = Rules.Eval.A
 	Game.clock.minute = 12.0 * 60.0
+	if OS.get_cmdline_user_args().has("--moon"):
+		Game.clock.minute = 23.0 * 60.0
+		view.moon_demo = true
 	Game.clock._last_int_minute = int(Game.clock.minute)
 	Game.engine.plan_day(false, 0)
 	cam.position = Vector2(190.0 * Art.SEG_W, -5.0 * Art.ROW_H)
@@ -410,9 +414,18 @@ func _unhandled_input(e: InputEvent) -> void:
 			MOUSE_BUTTON_WHEEL_DOWN:
 				if e.pressed:
 					_zoom(-1)
-			MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE:
+			MOUSE_BUTTON_MIDDLE:
 				panning = e.pressed
 				pan_from = e.position
+			MOUSE_BUTTON_RIGHT:
+				# Right drag pans; a right CLICK puts the tool down. The two are
+				# told apart by whether the mouse actually moved.
+				panning = e.pressed
+				pan_from = e.position
+				if e.pressed:
+					right_from = e.position
+				elif (e.position - right_from).length() < 6.0:
+					tool_bar.deselect()
 			MOUSE_BUTTON_LEFT:
 				if e.pressed:
 					_press(_cell_under_mouse())

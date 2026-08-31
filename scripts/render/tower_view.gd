@@ -13,6 +13,9 @@ var ghost_w: int = 1
 var ghost_drag_to := Vector2i(0, 0)
 var dragging: bool = false
 var t: float = 0.0
+## Screenshot helper: draw the whole lunar cycle in a row, so the phases can
+## be judged at once instead of one night at a time.
+var moon_demo: bool = false
 
 func _ready() -> void:
 	cam = get_node_or_null(camera_path) as Camera2D
@@ -42,7 +45,12 @@ func _draw() -> void:
 		return
 	var view := visible_world()
 	var minute := g.clock.minute_of_day()
-	_draw_sky(view, minute)
+	# The moon runs through its phases over eight days -- a year here is only
+	# twelve, so a real 29-day month would barely move. This way it is a
+	# different moon most nights, which is the point of drawing one.
+	var day_index := ((g.clock.year - 1) * Rules.QUARTERS_PER_YEAR
+		+ (g.clock.quarter - 1)) * Rules.DAYS_PER_QUARTER + g.clock.day_in_quarter
+	_draw_sky(view, minute, fposmod(float(day_index) / 8.0, 1.0))
 	_draw_ground(view)
 
 	var row_lo := maxi(int(floor(-view.end.y / Art.ROW_H)) - 1, FacilityDB.ROW_MIN)
@@ -60,7 +68,7 @@ func _draw() -> void:
 
 # --- backdrop --------------------------------------------------------------
 
-func _draw_sky(view: Rect2, minute: int) -> void:
+func _draw_sky(view: Rect2, minute: int, moon_phase: float) -> void:
 	var sky := Art.sky_colour(minute)
 	draw_rect(Rect2(view.position, Vector2(view.size.x, -view.position.y + view.size.y)), sky)
 	if Art.is_dark(minute):
@@ -80,13 +88,17 @@ func _draw_sky(view: Rect2, minute: int) -> void:
 		else (fposmod(float(minute) - 18.0 * 60.0, 24.0 * 60.0)) / (12.0 * 60.0)
 	var orb := Vector2(view.position.x + view.size.x * (0.10 + 0.80 * t01),
 		-(150.0 + sin(t01 * PI) * 320.0))
+	if moon_demo:
+		for i in range(8):
+			var mx := view.position.x + view.size.x * (0.08 + 0.12 * float(i))
+			Art.draw_moon(self, Vector2(mx, view.position.y + 330.0), 30.0,
+				float(i) / 8.0)
+		return
 	if day:
 		draw_circle(orb, 22.0, Color(0.99, 0.92, 0.62))
 		draw_circle(orb, 30.0, Color(0.99, 0.94, 0.70, 0.20))
 	else:
-		draw_circle(orb, 15.0, Color(0.93, 0.94, 0.88))
-		draw_circle(orb, 11.0, Art.sky_colour(minute).lerp(Color.BLACK, 0.2))
-		draw_circle(orb + Vector2(4, -2), 12.0, Color(0.93, 0.94, 0.88))
+		Art.draw_moon(self, orb, 16.0, moon_phase)
 
 func _draw_ground(view: Rect2) -> void:
 	var below := Rect2(view.position.x, 0.0, view.size.x, maxf(view.end.y, 40.0))

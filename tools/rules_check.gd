@@ -21,6 +21,7 @@ func _initialize() -> void:
 	_stairs_overlay()
 	_transport()
 	_economy()
+	_condo_timing()
 	_save_load()
 	print("--- %d failure(s) ---" % failures)
 	quit(1 if failures > 0 else 0)
@@ -191,6 +192,41 @@ func _economy() -> void:
 	ok(f.patron_rating() == Rules.Eval.B, "20 is a B")
 	f.patrons_today = 12
 	ok(f.patron_rating() == Rules.Eval.C, "12 is a C")
+
+## Flats are bought in the late morning. They used to be bought at three in
+## the morning along with everything else, which meant the one move-in the
+## player might actually watch happened while the tower was asleep.
+func _condo_timing() -> void:
+	# NB: the autoload's global name "Game" does not exist while a --script
+	# SceneTree is being compiled, so the constant is read off the instance.
+	var g = load("res://scripts/core/game.gd").new()
+	root.add_child(g)
+	g.new_game()
+	ok(int(g.CONDO_SALE_MINUTE) < 12 * 60, "flats are sold before midday")
+	g.tower.place("lobby", 40, 0, 120)
+	g.tower.place("floor", 40, 1, 120)
+	g.tower.place("stairs", 44, 0)
+	for x in range(60, 130, 16):
+		g.tower.place("condo", x, 1)
+	g.clock.minute = 0.0
+	g.clock._last_int_minute = 0
+	_run_to(g, 9 * 60)
+	ok(_sold(g) == 0, "nothing is sold overnight, got %d" % _sold(g))
+	_run_to(g, 11 * 60 + 30)
+	ok(_sold(g) > 0, "and the morning viewing sells some")
+
+func _run_to(g, minute_of_day: int) -> void:
+	var guard := 0
+	while g.clock.minute_of_day() < minute_of_day and guard < 40000:
+		g._process(0.2)
+		guard += 1
+
+func _sold(g) -> int:
+	var n := 0
+	for f in g.tower.all_of_kind(FacilityDB.Kind.CONDO):
+		if f.sold:
+			n += 1
+	return n
 
 func _save_load() -> void:
 	var g = load("res://scripts/core/game.gd").new()

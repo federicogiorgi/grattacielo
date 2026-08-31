@@ -86,6 +86,42 @@ static func sky_colour(minute: int) -> Color:
 		return SKY_DUSK.lerp(SKY_NIGHT, (h - 19.0) / 2.0)
 	return SKY_NIGHT
 
+## The moon, drawn with its phase. `phase` runs 0 (new) through 0.5 (full)
+## back to 1 (new): the lit limb is a half circle and the terminator is an
+## ellipse whose half-width is cos(2*pi*phase), which is negative past first
+## quarter and so bulges the other way into a gibbous.
+static func draw_moon(ci: CanvasItem, c: Vector2, rad: float, phase: float) -> void:
+	var pale := Color(0.95, 0.95, 0.88)
+	var unlit := Color(0.34, 0.36, 0.46)
+	var p := fposmod(phase, 1.0)
+	var waxing := p < 0.5
+	var k := cos(p * TAU)
+	var s := 1.0 if waxing else -1.0
+
+	ci.draw_circle(c, rad, unlit)                       # the dark disc
+	var n := 24
+	var pts := PackedVector2Array()
+	for i in range(n + 1):                              # the lit limb
+		var a := -PI * 0.5 + PI * float(i) / float(n)
+		pts.append(c + Vector2(cos(a) * rad * s, sin(a) * rad))
+	for i in range(n + 1):                              # back along the terminator
+		var a2 := PI * 0.5 - PI * float(i) / float(n)
+		pts.append(c + Vector2(cos(a2) * rad * k * s, sin(a2) * rad))
+	if absf(1.0 - k) > 0.02:
+		ci.draw_colored_polygon(pts, pale)
+		ci.draw_circle(c, rad * 1.7, Color(pale.r, pale.g, pale.b, 0.07))
+	ci.draw_arc(c, rad, 0, TAU, 28, Color(0.62, 0.64, 0.72, 0.5), 1.0)
+
+	# A few craters, drawn only where the sunlight actually reaches.
+	for m in [Vector2(-0.30, -0.22), Vector2(0.24, 0.10), Vector2(-0.06, 0.38),
+			Vector2(0.42, -0.36)]:
+		var q := c + Vector2(m.x, m.y) * rad
+		var yy: float = clampf(m.y, -0.99, 0.99)
+		var term := rad * k * s * sqrt(1.0 - yy * yy)
+		var lit := (q.x - c.x) >= term if waxing else (q.x - c.x) <= term
+		if lit:
+			ci.draw_circle(q, rad * 0.13, Color(0.84, 0.84, 0.79))
+
 static func is_dark(minute: int) -> bool:
 	var h := float(minute) / 60.0
 	return h < 6.0 or h >= 19.5
@@ -147,10 +183,16 @@ static func draw_facility(ci: CanvasItem, f: Facility, minute: int,
 	if FacilityDB.kind_of(t) == FacilityDB.Kind.TRANSPORT:
 		if f.wrecked:
 			return
+		# A flight connects its own floor to the one above, so it rises through
+		# exactly ONE floor's height: from this floor's slab to the next one's.
+		# It used to be drawn across the full two-row footprint, which made it
+		# look as though it climbed two storeys and landed a floor higher than
+		# it actually does.
+		var run := cell_rect(f.seg, f.row, f.w, 1)
 		if t == "stairs":
-			_draw_stairs(ci, r, trim(t), detail(t))
+			_draw_stairs(ci, run, trim(t), detail(t))
 		else:
-			_draw_escalator(ci, r, trim(t), detail(t), minute)
+			_draw_escalator(ci, run, trim(t), detail(t), minute)
 		return
 
 	var col := body(t)
@@ -647,12 +689,12 @@ static func _draw_stairs(ci: CanvasItem, r: Rect2, tr: Color, det: Color) -> voi
 	ci.draw_line(Vector2(r.position.x, r.end.y - sh + thick + 1.0),
 		Vector2(r.end.x, r.position.y + thick + 1.0), tr, 2.0)
 	# handrail above, on short posts
-	ci.draw_line(Vector2(r.position.x + 1, r.end.y - sh - 12.0),
-		Vector2(r.end.x - 1, r.position.y - 12.0 + thick), tr, 2.0)
+	ci.draw_line(Vector2(r.position.x + 1, r.end.y - sh - 11.0),
+		Vector2(r.end.x - 1, r.position.y - 11.0 + thick), tr, 2.0)
 	for i in range(0, steps + 1, 3):
 		var px := r.position.x + float(i) * sw
 		var py := r.end.y - float(i) * sh - sh
-		ci.draw_line(Vector2(px, py + thick), Vector2(px, py - 12.0), tr, 1.2)
+		ci.draw_line(Vector2(px, py + thick), Vector2(px, py - 11.0), tr, 1.2)
 
 static func _draw_escalator(ci: CanvasItem, r: Rect2, tr: Color, det: Color,
 		minute: int) -> void:

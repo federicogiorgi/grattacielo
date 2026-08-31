@@ -429,6 +429,14 @@ func _pick(id: String) -> void:
 		mode_buttons[k].queue_redraw()
 	tool_picked.emit(id)
 
+## Put the current tool down and go back to the magnifying glass. Right
+## clicking anywhere does this, which is the quickest way out of a build you
+## have changed your mind about.
+func deselect() -> void:
+	if mode == "inspect":
+		return
+	_pick_mode("inspect")
+
 func _pick_mode(m: String) -> void:
 	mode = m
 	for k in buttons:
