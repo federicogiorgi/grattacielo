@@ -426,9 +426,10 @@ func _toggle_pause() -> void:
 
 func sync_pause_button() -> void:
 	pause_btn.text = ">" if Game.manual_paused else "||"
-	var left := Game.undo_left()
-	undo_btn.disabled = left <= 0.0
-	undo_btn.text = "Undo" if left <= 0.0 else "Undo  %d min" % int(ceil(left))
+	# No countdown on the button. It is either available or greyed out -- a
+	# number ticking down in the corner of a screen you are trying to think on
+	# top of is a pressure nobody asked for.
+	undo_btn.disabled = not Game.can_undo()
 
 func _speed(d: int) -> void:
 	Game.speed_index = clampi(Game.speed_index + d, 0, Game.SPEEDS.size() - 1)
