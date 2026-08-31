@@ -697,6 +697,31 @@ func _now_minute() -> float:
 
 # --- nightly bookkeeping ---------------------------------------------------
 
+## People let into a space during the day should turn up during the day. The
+## day's timetable was built at midnight and knows nothing about them, so their
+## first commute is scheduled here by hand.
+func welcome(f: Facility, now: int, weekend: bool) -> void:
+	if weekend or f.kind() != FacilityDB.Kind.OFFICE:
+		return
+	for sid in f.occupants:
+		var arrive := now + 4 + rng.randi_range(0, 22)
+		if arrive >= 19 * 60:
+			continue
+		_add_trip(arrive % (24 * 60), sid, f.id, Sim.Purpose.COMMUTE_IN)
+		var leave: int = maxi(arrive + 80, 17 * 60 + rng.randi_range(0, 120))
+		if leave < 24 * 60:
+			_add_trip(leave, sid, -1, Sim.Purpose.COMMUTE_OUT)
+
+## A hotel room built today still takes guests tonight.
+func book_tonight(f: Facility, now: int) -> void:
+	if f.kind() != FacilityDB.Kind.HOTEL or f.dirty or f.roaches:
+		return
+	for i in range(f.capacity()):
+		var arrive: int = maxi(now + 10, 18 * 60 + rng.randi_range(0, 240))
+		if arrive >= 24 * 60:
+			continue
+		_add_trip(arrive, -1, f.id, Sim.Purpose.CHECK_IN)
+
 ## Reset the counters a new day starts from.
 func begin_day() -> void:
 	for fid in tower.facilities:

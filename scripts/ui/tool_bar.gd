@@ -169,20 +169,31 @@ class ToolButton extends Button:
 						Vector2(c.x + 2, g.position.y), Vector2(c.x + 9, g.position.y),
 						Vector2(c.x + 5.5, g.position.y + 6)]), ink)
 			"office":
-				draw_rect(Rect2(g.position.x + 1, c.y + 3, g.size.x - 2, 3), ink)
-				draw_rect(Rect2(g.position.x + 4, c.y + 6, 2, g.size.y * 0.28), ink)
-				draw_rect(Rect2(g.end.x - 6, c.y + 6, 2, g.size.y * 0.28), ink)
-				draw_rect(Rect2(g.position.x + 4, g.position.y + 2, 13, 10), det)
-				draw_rect(Rect2(g.position.x + 4, g.position.y + 2, 13, 10), ink, false, 1.0)
-				draw_rect(Rect2(g.end.x - 9, g.position.y + 4, 4, 11), ink)
+				# two big panes of sky over a desk: nothing else looks like it
+				var pw := (g.size.x - 7.0) * 0.5
+				for i in range(2):
+					var pane := Rect2(g.position.x + 1.5 + float(i) * (pw + 4.0),
+						g.position.y, pw, g.size.y * 0.60)
+					draw_rect(pane, Art.SKY_DAY)
+					draw_line(Vector2(pane.position.x, pane.get_center().y),
+						Vector2(pane.end.x, pane.get_center().y), ink, 1.0)
+					draw_line(Vector2(pane.get_center().x, pane.position.y),
+						Vector2(pane.get_center().x, pane.end.y), ink, 1.0)
+					draw_rect(pane, ink, false, 1.5)
+				draw_rect(Rect2(g.position.x + 1, g.end.y - 8, g.size.x - 2, 2.5), ink)
+				draw_rect(Rect2(g.position.x + 4, g.end.y - 6, 2, 6), ink)
+				draw_rect(Rect2(g.end.x - 6, g.end.y - 6, 2, 6), ink)
 			"condo":
-				draw_rect(Rect2(g.position.x + 2, g.position.y + 1, 15, 12), det)
-				draw_rect(Rect2(g.position.x + 2, g.position.y + 1, 15, 12), ink, false, 1.0)
-				draw_line(Vector2(g.position.x + 9.5, g.position.y + 1),
-					Vector2(g.position.x + 9.5, g.position.y + 13), ink, 1.0)
-				draw_rect(Rect2(g.position.x + 2, g.end.y - 9, g.size.x - 4, 7), trim)
-				draw_rect(Rect2(g.position.x + 2, g.end.y - 13, 4, 6), trim)
-				draw_rect(Rect2(g.end.x - 6, g.end.y - 13, 4, 6), trim)
+				# a curtained window, a sofa and a standing lamp: a home
+				draw_rect(Rect2(g.position.x + 2, g.position.y + 1, 11, 9), Art.SKY_DAY)
+				draw_rect(Rect2(g.position.x + 2, g.position.y + 1, 11, 9), ink, false, 1.0)
+				draw_rect(Rect2(g.position.x, g.position.y, 3, 11), trim)
+				draw_rect(Rect2(g.position.x + 12, g.position.y, 3, 11), trim)
+				draw_rect(Rect2(g.position.x + 2, g.end.y - 9, g.size.x - 11, 8), trim)
+				draw_rect(Rect2(g.position.x + 2, g.end.y - 14, g.size.x - 11, 6),
+					trim.lightened(0.18))
+				draw_circle(Vector2(g.end.x - 4, g.end.y - 17), 3.5, det)
+				draw_rect(Rect2(g.end.x - 5, g.end.y - 14, 2, 14), ink)
 			"hotel_single":
 				Glyph.bed(self, Rect2(g.position.x + 2, g.position.y + 7,
 					g.size.x - 4, g.size.y - 12), ink, det)

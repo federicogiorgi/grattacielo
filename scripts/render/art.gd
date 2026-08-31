@@ -12,6 +12,7 @@ class_name Art
 
 const SEG_W := 8.0
 const ROW_H := 36.0
+const SLAB := 4.0      # thickness of a floor slab, drawn at the row's foot
 
 const OUTLINE := Color(0.10, 0.11, 0.14)
 const SKY_DAY := Color(0.42, 0.66, 0.88)
@@ -30,8 +31,8 @@ const WARM := Color(0.99, 0.88, 0.55)
 const PALETTE := {
 	"lobby":            [Color(0.88, 0.85, 0.77), Color(0.60, 0.55, 0.45), Color(0.30, 0.46, 0.26)],
 	"floor":            [Color(0.60, 0.59, 0.56), Color(0.45, 0.44, 0.41), Color(0.35, 0.34, 0.32)],
-	"office":           [Color(0.82, 0.85, 0.89), Color(0.38, 0.45, 0.56), Color(0.96, 0.86, 0.52)],
-	"condo":            [Color(0.86, 0.76, 0.63), Color(0.50, 0.39, 0.31), Color(0.98, 0.88, 0.60)],
+	"office":           [Color(0.70, 0.77, 0.86), Color(0.26, 0.36, 0.50), Color(0.98, 0.90, 0.60)],
+	"condo":            [Color(0.82, 0.63, 0.45), Color(0.44, 0.29, 0.20), Color(0.99, 0.86, 0.52)],
 	"hotel_single":     [Color(0.74, 0.68, 0.82), Color(0.42, 0.36, 0.53), Color(0.98, 0.90, 0.66)],
 	"hotel_twin":       [Color(0.70, 0.64, 0.82), Color(0.38, 0.32, 0.51), Color(0.98, 0.90, 0.66)],
 	"hotel_suite":      [Color(0.64, 0.56, 0.80), Color(0.32, 0.26, 0.47), Color(0.99, 0.93, 0.72)],
@@ -137,8 +138,8 @@ static func _shell(ci: CanvasItem, r: Rect2, wall: Color, floor_c: Color) -> voi
 	# a slightly darker band at the top reads as the ceiling in shadow
 	ci.draw_rect(Rect2(r.position.x, r.position.y, r.size.x, r.size.y * 0.22),
 		wall.darkened(0.10))
-	ci.draw_rect(Rect2(r.position.x, r.end.y - 4, r.size.x, 4), floor_c)
-	ci.draw_line(Vector2(r.position.x, r.end.y - 4), Vector2(r.end.x, r.end.y - 4),
+	ci.draw_rect(Rect2(r.position.x, r.end.y - SLAB, r.size.x, SLAB), floor_c)
+	ci.draw_line(Vector2(r.position.x, r.end.y - SLAB), Vector2(r.end.x, r.end.y - SLAB),
 		floor_c.darkened(0.25), 1.0)
 
 static func _lamp(ci: CanvasItem, at: Vector2, lit: bool, col: Color) -> void:
@@ -188,7 +189,13 @@ static func draw_facility(ci: CanvasItem, f: Facility, minute: int,
 		# It used to be drawn across the full two-row footprint, which made it
 		# look as though it climbed two storeys and landed a floor higher than
 		# it actually does.
+		# A flight runs from the walking surface of its own floor to the
+		# walking surface of the one above. Both slabs are drawn four pixels
+		# thick at the BOTTOM of their row, so the run is the row's rectangle
+		# lifted by that much -- without the lift it started just above one
+		# slab and stopped just below the other, meeting neither.
 		var run := cell_rect(f.seg, f.row, f.w, 1)
+		run.position.y -= SLAB
 		if t == "stairs":
 			_draw_stairs(ci, run, trim(t), detail(t))
 		else:
@@ -218,9 +225,9 @@ static func draw_facility(ci: CanvasItem, f: Facility, minute: int,
 
 	match FacilityDB.kind_of(t):
 		FacilityDB.Kind.OFFICE:
-			_draw_office(ci, r, col, tr, det, lit)
+			_draw_office(ci, r, col, tr, det, lit, minute)
 		FacilityDB.Kind.CONDO:
-			_draw_condo(ci, r, col, tr, det, lit)
+			_draw_condo(ci, r, col, tr, det, lit, minute)
 		FacilityDB.Kind.HOTEL:
 			_draw_hotel(ci, r, col, tr, det, lit, f)
 		FacilityDB.Kind.FOOD:
@@ -296,53 +303,86 @@ static func _lit(f: Facility, minute: int) -> bool:
 
 # --- offices and homes -----------------------------------------------------
 
+## An office is two big panes of glass with the sky behind them, a desk under
+## each, and nothing else. It has to be told apart from a flat at a glance and
+## across a whole floor of them, so the difference is structural: bare glazing
+## and a cold grey-blue against curtains, a sofa and a warm tan.
+## An office is two big panes of glass with the sky behind them, a desk under
+## each, and nothing else. It has to be told apart from a flat at a glance and
+## across a whole floor of them, so the difference is structural: bare glazing
+## and a cold grey-blue against curtains, a sofa and a warm tan.
 static func _draw_office(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
-		det: Color, lit: bool) -> void:
+		det: Color, lit: bool, minute: int) -> void:
 	_shell(ci, r, col, tr)
 	var base := r.end.y - 4.0
-	var ink := tr.darkened(0.25)
-	# a strip light on the ceiling
-	ci.draw_rect(Rect2(r.position.x + 6, r.position.y + 3, r.size.x - 12, 2),
-		det if lit else tr)
-	# two desks facing each other, each with a monitor and a chair
-	for i in range(2):
-		var dx := r.position.x + 12.0 + float(i) * (r.size.x - 22.0)
-		ci.draw_rect(Rect2(dx - 9, base - 11, 18, 2.5), ink)
-		ci.draw_rect(Rect2(dx - 8, base - 9, 2, 9), ink)
-		ci.draw_rect(Rect2(dx + 6, base - 9, 2, 9), ink)
-		ci.draw_rect(Rect2(dx - 5, base - 20, 10, 8), det if lit else ink)
-		ci.draw_rect(Rect2(dx - 5, base - 20, 10, 8), ink, false, 1.0)
-		ci.draw_rect(Rect2(dx - 1.5, base - 12.5, 3, 1.5), ink)
-		_chair(ci, dx + (13.0 if i == 0 else -13.0), base, ink, i == 0)
-	# a filing cabinet against the back wall
-	ci.draw_rect(Rect2(r.end.x - 9, base - 17, 7, 17), ink)
-	for k in range(3):
-		ci.draw_line(Vector2(r.end.x - 9, base - 12.0 + float(k) * 5.0),
-			Vector2(r.end.x - 2, base - 12.0 + float(k) * 5.0), tr, 1.0)
+	var ink := tr.darkened(0.15)
+	var sky := sky_colour(minute)
 
+	# Two large windows, glazed with whatever the sky is doing outside.
+	var pad := 5.0
+	var gap := 5.0
+	var top := r.position.y + 5.0
+	var bot := base - 13.0
+	var w := (r.size.x - pad * 2.0 - gap) * 0.5
+	for i in range(2):
+		var g := Rect2(r.position.x + pad + float(i) * (w + gap), top, w, bot - top)
+		ci.draw_rect(g, sky)
+		# a transom and a mullion, so it reads as a window and not a hole
+		ci.draw_line(Vector2(g.position.x, g.position.y + g.size.y * 0.38),
+			Vector2(g.end.x, g.position.y + g.size.y * 0.38), ink, 1.0)
+		ci.draw_line(Vector2(g.get_center().x, g.position.y),
+			Vector2(g.get_center().x, g.end.y), ink, 1.0)
+		ci.draw_rect(g, ink, false, 1.5)
+		ci.draw_rect(Rect2(g.position.x - 1, g.end.y, g.size.x + 2, 2), tr)
+		if lit:
+			# the light falls on the sill and the floor below, not on the glass
+			ci.draw_rect(Rect2(g.position.x - 1, g.end.y + 2, g.size.x + 2, 2),
+				Color(det.r, det.g, det.b, 0.55))
+
+	# A desk under each window: a top, a monitor, a chair back.
+	for i in range(2):
+		var cx := r.position.x + pad + w * 0.5 + float(i) * (w + gap)
+		ci.draw_rect(Rect2(cx - w * 0.34, base - 9, w * 0.68, 2.0), ink)
+		ci.draw_rect(Rect2(cx - w * 0.30, base - 7, 1.5, 7), ink)
+		ci.draw_rect(Rect2(cx + w * 0.28, base - 7, 1.5, 7), ink)
+		ci.draw_rect(Rect2(cx - 4, base - 15, 8, 6), det if lit else ink)
+		ci.draw_rect(Rect2(cx - 4, base - 15, 8, 6), ink, false, 1.0)
+		ci.draw_rect(Rect2(cx + w * 0.16, base - 13, 2, 6), ink)
+
+## A flat is a home: one curtained window, a sofa, a standing lamp, a
+## television and a plant, in warm tan. Nothing here is glazed edge to edge,
+## which is the whole point of the contrast with an office.
 static func _draw_condo(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
-		det: Color, lit: bool) -> void:
+		det: Color, lit: bool, minute: int) -> void:
 	_shell(ci, r, col, tr)
 	var base := r.end.y - 4.0
-	var ink := tr.darkened(0.2)
-	# window with curtains
-	var w := Rect2(r.position.x + 6, r.position.y + 8, 26, 15)
-	_window(ci, w, lit, 1)
-	ci.draw_rect(Rect2(w.position.x - 3, w.position.y - 2, 4, w.size.y + 3), tr)
-	ci.draw_rect(Rect2(w.end.x - 1, w.position.y - 2, 4, w.size.y + 3), tr)
-	# sofa, side table with a lamp, and a television
+	var ink := tr.darkened(0.15)
+
+	# a modest window with the curtains half drawn
+	var g := Rect2(r.position.x + 9, r.position.y + 8, 22, 14)
+	ci.draw_rect(g, sky_colour(minute))
+	ci.draw_line(Vector2(g.get_center().x, g.position.y),
+		Vector2(g.get_center().x, g.end.y), ink, 1.0)
+	ci.draw_rect(g, ink, false, 1.5)
+	for side in [-1.0, 1.0]:
+		var cxx: float = g.get_center().x + side * (g.size.x * 0.5 + 2.0)
+		ci.draw_rect(Rect2(cxx - 3.0, g.position.y - 2, 6, g.size.y + 4), tr)
+	ci.draw_rect(Rect2(g.position.x - 6, g.position.y - 4, g.size.x + 12, 2.5), ink)
+
+	# sofa, side lamp, television, rug
 	var sx := r.position.x + 44.0
+	ci.draw_rect(Rect2(sx - 6, base - 1, 40, 1.5), det.darkened(0.25))
 	ci.draw_rect(Rect2(sx, base - 9, 26, 9), tr)
-	ci.draw_rect(Rect2(sx, base - 15, 26, 7), tr.lightened(0.12))
+	ci.draw_rect(Rect2(sx, base - 15, 26, 7), tr.lightened(0.16))
 	ci.draw_rect(Rect2(sx - 3, base - 14, 4, 14), tr)
 	ci.draw_rect(Rect2(sx + 25, base - 14, 4, 14), tr)
-	_lamp(ci, Vector2(sx + 34, base - 16), lit, det)
-	ci.draw_rect(Rect2(sx + 34, base - 10, 2, 10), ink)
+	_lamp(ci, Vector2(sx + 34, base - 17), lit, det)
+	ci.draw_rect(Rect2(sx + 33, base - 11, 2, 11), ink)
 	if r.size.x > 100.0:
-		ci.draw_rect(Rect2(r.end.x - 22, base - 20, 16, 12), ink)
-		ci.draw_rect(Rect2(r.end.x - 20, base - 18, 12, 8),
-			GLASS if lit else GLASS.darkened(0.55))
-		ci.draw_rect(Rect2(r.end.x - 16, base - 8, 4, 8), ink)
+		ci.draw_rect(Rect2(r.end.x - 24, base - 20, 18, 13), ink)
+		ci.draw_rect(Rect2(r.end.x - 22, base - 18, 14, 9),
+			det if lit else Color(0.30, 0.34, 0.38))
+		ci.draw_rect(Rect2(r.end.x - 17, base - 7, 4, 7), ink)
 	_plant(ci, r.position.x + 38, base)
 
 static func _draw_hotel(ci: CanvasItem, r: Rect2, col: Color, tr: Color,
@@ -698,8 +738,10 @@ static func _draw_stairs(ci: CanvasItem, r: Rect2, tr: Color, det: Color) -> voi
 
 static func _draw_escalator(ci: CanvasItem, r: Rect2, tr: Color, det: Color,
 		minute: int) -> void:
-	var a := Vector2(r.position.x, r.end.y - 3)
-	var b := Vector2(r.end.x, r.position.y + 5)
+	# Corner to corner: the run rect already spans slab surface to slab
+	# surface, so the ends land exactly on the two floors it joins.
+	var a := Vector2(r.position.x, r.end.y)
+	var b := Vector2(r.end.x, r.position.y)
 	var n := (b - a).normalized()
 	var up := Vector2(-n.y, n.x) * 11.0
 	# the truss the steps ride on
@@ -729,17 +771,21 @@ static func _hatch(ci: CanvasItem, r: Rect2, col: Color) -> void:
 # Structure, shafts, people
 # ---------------------------------------------------------------------------
 
-## Bare structure: a slab and the columns holding it up, with the sky showing
-## through. Anything heavier and an unfinished tower reads as a solid block.
+## An empty floor is BUILT, and must look it: opaque grey shell, not sky seen
+## through a skeleton. You have paid for this storey and it is the difference
+## between "there is a floor here" and "there is nothing here", which is the
+## single most important thing the edit view has to tell you.
 static func draw_empty_floor(ci: CanvasItem, seg: int, row: int, w: int) -> void:
 	var r := cell_rect(seg, row, w, 1)
-	ci.draw_rect(Rect2(r.position.x, r.end.y - 5, r.size.x, 5), CONCRETE_DARK)
-	ci.draw_rect(Rect2(r.position.x, r.end.y - 5, r.size.x, 2), CONCRETE)
-	var x := r.position.x + 4.0
-	while x < r.end.x - 2.0:
-		ci.draw_rect(Rect2(x, r.position.y + 2, 3.0, r.size.y - 7.0),
-			Color(0.55, 0.55, 0.55, 0.55))
-		x += 64.0
+	ci.draw_rect(r, Color(0.62, 0.62, 0.60))
+	ci.draw_rect(Rect2(r.position.x, r.position.y, r.size.x, r.size.y * 0.20),
+		Color(0.55, 0.55, 0.53))
+	var x := r.position.x + 8.0
+	while x < r.end.x - 4.0:
+		ci.draw_rect(Rect2(x, r.position.y + 3, 3.0, r.size.y - 8.0), CONCRETE_DARK)
+		x += 56.0
+	ci.draw_rect(Rect2(r.position.x, r.end.y - SLAB, r.size.x, SLAB), CONCRETE_DARK)
+	ci.draw_rect(Rect2(r.position.x, r.end.y - SLAB, r.size.x, 1.5), CONCRETE)
 
 static func draw_lobby(ci: CanvasItem, seg: int, row: int, w: int, minute: int) -> void:
 	var r := cell_rect(seg, row, w, 1)

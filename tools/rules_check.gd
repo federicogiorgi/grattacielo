@@ -21,7 +21,7 @@ func _initialize() -> void:
 	_stairs_overlay()
 	_transport()
 	_economy()
-	_condo_timing()
+	_letting_timing()
 	_save_load()
 	print("--- %d failure(s) ---" % failures)
 	quit(1 if failures > 0 else 0)
@@ -129,21 +129,22 @@ func _stairs_overlay() -> void:
 		t.place("floor", 40, r, 120)
 	for x in range(42, 140, 9):
 		t.place("office", x, 1)
-	ok(t.check_place("stairs", 44, 0)["ok"],
+	ok(t.check_place("stairs", 44, 1)["ok"],
 		"stairs may be laid up through a floor full of offices")
-	var st := t.place("stairs", 44, 0)
+	var st := t.place("stairs", 44, 1)
 	ok(st != null, "the stairs are placed")
 	ok(t.facility_at(44, 1) != null and t.facility_at(44, 1).type == "office",
-		"and the office underneath them is still there")
+		"and the office they cross is still there")
 	ok(t.transit_at(44, 1) != null and t.transit_at(44, 1).type == "stairs",
-		"with the stairs on their own layer above it")
-	ok(not t.check_place("stairs", 46, 0)["ok"], "but not two flights in one place")
-	# A second flight where no office stands, to show a room cannot then be
-	# built into it. (Row 2 is free of the first flight, which only spans 0-1.)
-	t.place("stairs", 150, 0)
+		"with the stairs on their own layer over it")
+	ok(not t.check_place("stairs", 46, 1)["ok"], "but not two flights in one place")
+	# A flight claims only the storey it climbs through, so another can be
+	# stacked directly on top of it to carry on upwards.
+	ok(t.check_place("stairs", 44, 2)["ok"], "and a flight may be stacked on a flight")
+	t.place("stairs", 150, 1)
 	ok(not t.check_place("office", 150, 1)["ok"], "and no room built into a flight")
 	# A lift may not run through a staircase, nor a staircase through a lift.
-	ok(not t.check_place("elevator", 45, 0)["ok"], "no elevator through the stairs")
+	ok(not t.check_place("elevator", 45, 1)["ok"], "no elevator through the stairs")
 	t.place_shaft("elevator", 200, 0, 2)
 	ok(not t.check_place("stairs", 199, 0)["ok"], "and no stairs through an elevator")
 	# The bulldozer takes the flight first, leaving what it crossed alone.
@@ -193,31 +194,58 @@ func _economy() -> void:
 	f.patrons_today = 12
 	ok(f.patron_rating() == Rules.Eval.C, "12 is a C")
 
-## Flats are bought in the late morning. They used to be bought at three in
-## the morning along with everything else, which meant the one move-in the
-## player might actually watch happened while the tower was asleep.
-func _condo_timing() -> void:
+## Anything built in the morning is taken the same day, if the tower has
+## earned it. This used to happen only at three the following morning, so a
+## floor of offices you had just paid for sat empty for the rest of the day.
+func _letting_timing() -> void:
 	# NB: the autoload's global name "Game" does not exist while a --script
-	# SceneTree is being compiled, so the constant is read off the instance.
+	# SceneTree is being compiled, so constants are read off the instance.
 	var g = load("res://scripts/core/game.gd").new()
 	root.add_child(g)
 	g.new_game()
-	ok(int(g.CONDO_SALE_MINUTE) < 12 * 60, "flats are sold before midday")
-	g.tower.place("lobby", 40, 0, 120)
-	g.tower.place("floor", 40, 1, 120)
-	g.tower.place("stairs", 44, 0)
-	for x in range(60, 130, 16):
-		g.tower.place("condo", x, 1)
-	g.clock.minute = 0.0
-	g.clock._last_int_minute = 0
-	_run_to(g, 9 * 60)
-	ok(_sold(g) == 0, "nothing is sold overnight, got %d" % _sold(g))
-	_run_to(g, 11 * 60 + 30)
-	ok(_sold(g) > 0, "and the morning viewing sells some")
+	g.stars = 5
+	ok(int(g.CONDO_SALE_TO) <= 12 * 60, "flats are viewed before midday")
+
+	g.try_place("lobby", 40, 0, 120)
+	g.try_place("floor", 40, 1, 120)
+	g.try_place("floor", 40, 2, 120)
+	g.try_place("stairs", 44, 0)
+	g.try_place("stairs", 44, 1)
+
+	# Eight o'clock: put up offices, flats, a hotel room and a security office.
+	g.clock.minute = 8.0 * 60.0
+	g.clock._last_int_minute = int(g.clock.minute)
+	for x in range(52, 124, 9):
+		g.try_place("office", x, 1)
+	g.try_place("security", 130, 1)
+	for x in range(52, 100, 16):
+		g.try_place("condo", x, 2)
+	g.try_place("hotel_twin", 110, 2)
+
+	var sec: Facility = g.tower.all_of_type("security")[0]
+	ok(not sec.occupants.is_empty(), "the guards are on duty the moment you pay")
+
+	_run_to(g, 8 * 60 + 50)
+	ok(_sold(g) == 0, "no flat is sold before the morning viewing")
+	_run_to(g, 12 * 60)
+	ok(_vacant(g, FacilityDB.Kind.OFFICE) == 0,
+		"every office built at eight is let by noon, %d still empty"
+		% _vacant(g, FacilityDB.Kind.OFFICE))
+	ok(_sold(g) > 0, "and the flats have been viewed and sold")
+
+	_run_to(g, 21 * 60)
+	var room: Facility = g.tower.all_of_type("hotel_twin")[0]
+	ok(not room.occupants.is_empty(), "a room built today still takes guests tonight")
+
+	# And the tower stops letting once word gets round.
+	for f in g.tower.all_of_kind(FacilityDB.Kind.OFFICE):
+		f.eval = Rules.Eval.C
+	ok(not g._letting_allowed(FacilityDB.Kind.OFFICE),
+		"nothing new lets while the offices are all in crisis")
 
 func _run_to(g, minute_of_day: int) -> void:
 	var guard := 0
-	while g.clock.minute_of_day() < minute_of_day and guard < 40000:
+	while g.clock.minute_of_day() < minute_of_day and guard < 60000:
 		g._process(0.2)
 		guard += 1
 
@@ -225,6 +253,13 @@ func _sold(g) -> int:
 	var n := 0
 	for f in g.tower.all_of_kind(FacilityDB.Kind.CONDO):
 		if f.sold:
+			n += 1
+	return n
+
+func _vacant(g, kind: int) -> int:
+	var n := 0
+	for f in g.tower.all_of_kind(kind):
+		if f.occupants.is_empty():
 			n += 1
 	return n
 

@@ -117,6 +117,7 @@ func _demo_tower() -> void:
 	t.place("metro", 170, -2)
 	t.place("stairs", 256, 0)
 	t.place("stairs", 256, 1)
+	t.place("stairs", 256, 2)
 	t.place("stairs", 150, 1)
 	t.place("stairs", 190, 5)
 	t.place("escalator", 246, 3)
@@ -130,6 +131,7 @@ func _demo_tower() -> void:
 	# than a hundred empty rooms waiting for their first tenant.
 	for i in range(30):
 		Game._rest_period()
+		Game._letting_round(10 * 60)
 		for fid in t.facilities:
 			var f: Facility = t.facilities[fid]
 			if f.kind() in [FacilityDB.Kind.OFFICE, FacilityDB.Kind.CONDO,
@@ -178,7 +180,7 @@ func _demo_tower() -> void:
 			tip.position = Vector2(260, y)
 			root_ui.add_child(tip)
 			y += 130.0
-	else:
+	elif not OS.get_cmdline_user_args().has("--focus"):
 		map_window.show()
 
 func _shot_tick(delta: float) -> void:

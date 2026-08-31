@@ -195,17 +195,21 @@ func check_place(type: String, seg: int, row: int, w_override: int = -1,
 	# rooms -- they are drawn over them and nothing is hidden -- but not a lift
 	# shaft, and not each other.
 	if type == "stairs" or type == "escalator":
+		# Both floors must exist -- one to stand on, one to arrive at -- but
+		# the flight only OCCUPIES the lower one, the storey it climbs through.
+		# Claiming both meant two stacked flights collided on the landing they
+		# share, so a staircase could never be continued upwards.
 		for r in range(row, row + h):
 			if not range_built(seg, r, w):
 				res.reason = "No floor at " + FacilityDB.row_label(r)
 				return res
-			for c in range(seg, seg + w):
-				if shaft_id_at(c, r) != -1:
-					res.reason = "An elevator is in the way"
-					return res
-				if transit_id_at(c, r) != -1:
-					res.reason = "Stairs are already here"
-					return res
+		for c in range(seg, seg + w):
+			if shaft_id_at(c, row) != -1:
+				res.reason = "An elevator is in the way"
+				return res
+			if transit_id_at(c, row) != -1:
+				res.reason = "Stairs are already here"
+				return res
 		if type == "escalator" and not _escalator_site_ok(seg, row):
 			res.reason = "Commercial and public areas only"
 			return res
@@ -399,7 +403,8 @@ func place(type: String, seg: int, row: int, w_override: int = -1) -> Facility:
 			if structure[idx(c, r)] == VOID:
 				structure[idx(c, r)] = FLOOR
 			if overlay:
-				transit_grid[idx(c, r)] = f.id
+				if r == row:            # the storey the flight climbs through
+					transit_grid[idx(c, r)] = f.id
 			else:
 				occupancy[idx(c, r)] = f.id
 		_touch(r)
@@ -485,10 +490,9 @@ func bulldoze(seg: int, row: int) -> Dictionary:
 	var tid := transit_id_at(seg, row)
 	if tid != -1:
 		var tf: Facility = facilities[tid]
-		for r in range(tf.row, tf.row + tf.h):
-			for c in range(tf.seg, tf.seg + tf.w):
-				if in_bounds(c, r) and transit_grid[idx(c, r)] == tf.id:
-					transit_grid[idx(c, r)] = -1
+		for c in range(tf.seg, tf.seg + tf.w):
+			if in_bounds(c, tf.row) and transit_grid[idx(c, tf.row)] == tf.id:
+				transit_grid[idx(c, tf.row)] = -1
 		facilities.erase(tf.id)
 		out.ok = true
 		out.kind = "facility"
@@ -628,7 +632,8 @@ func from_dict(d: Dictionary) -> void:
 			for c in range(f.seg, f.seg + f.w):
 				if in_bounds(c, r):
 					if overlay:
-						transit_grid[idx(c, r)] = f.id
+						if r == f.row:
+							transit_grid[idx(c, r)] = f.id
 					else:
 						occupancy[idx(c, r)] = f.id
 			_touch(r)

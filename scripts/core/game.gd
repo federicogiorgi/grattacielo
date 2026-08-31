@@ -46,7 +46,13 @@ var save_path: String = "user://grattacielo.save"
 ## Flats are bought in the late morning, when an estate agent would actually
 ## be showing them -- not in the small hours with everything else. It is also
 ## the one move-in the player is likely to be watching.
-const CONDO_SALE_MINUTE := 10 * 60 + 30
+# Flats are viewed in the late morning; everything else lets all working day.
+const CONDO_SALE_FROM := 9 * 60
+const CONDO_SALE_TO := 12 * 60
+const LETTING_FROM := 7 * 60
+const LETTING_TO := 19 * 60
+const LETTING_EVERY := 30
+const LETTING_SHARE := 0.34
 
 var weather: String = "clear"
 var _weather_bag: Array[String] = []
@@ -196,8 +202,8 @@ func _on_minute(m: int) -> void:
 		_explode(int(b["seg"]), int(b["row"]))
 	if m == 3 * 60:
 		_rest_period()
-	if m == CONDO_SALE_MINUTE:
-		_condo_sales()
+	if m >= LETTING_FROM and m <= LETTING_TO and m % LETTING_EVERY == 0:
+		_letting_round(m)
 
 # --- the daily cycle -------------------------------------------------------
 
@@ -374,42 +380,24 @@ func _apply_noise(f: Facility) -> void:
 
 # --- the rest period: who moves in, who moves out -------------------------
 
+## Three in the morning is when tenants LEAVE -- the manual is explicit that
+## the C-rated give up "at the end of the rest period". Nobody moves IN here
+## any more; letting happens during the working day, where you can see it.
 func _rest_period() -> void:
-	var moved_in := 0
 	var moved_out := 0
-	# "At the next rest period the inhabitants will bring a friend to inhabit a
-	# vacant space" -- so an empty office only fills if some other office is
-	# actually happy. A tower nobody can move around in stops growing, which is
-	# the whole feedback loop of the game.
-	var quota := _growth_quota()
 	for fid in tower.facilities.keys():
 		var f: Facility = tower.facilities.get(fid)
 		if f == null or f.wrecked:
 			continue
 		match f.kind():
-			FacilityDB.Kind.OFFICE:
-				if f.occupants.is_empty():
-					if int(quota[FacilityDB.Kind.OFFICE]) > 0 and _reachable(f):
-						quota[FacilityDB.Kind.OFFICE] = int(quota[FacilityDB.Kind.OFFICE]) - 1
-						_lease_office(f)
-						moved_in += 1
-				elif f.eval == Rules.Eval.C:
+			FacilityDB.Kind.OFFICE, FacilityDB.Kind.SHOP:
+				if not f.occupants.is_empty() and f.eval == Rules.Eval.C:
 					_evict(f)
 					moved_out += 1
 			FacilityDB.Kind.CONDO:
-				# Buyers arrive at CONDO_SALE_MINUTE, not here. What the rest
-				# period still does is hand the money back to anyone leaving.
 				if f.sold and f.eval == Rules.Eval.C:
 					econ.charge(f.sale_price, "Condominium refunded")
 					f.sold = false
-					_evict(f)
-					moved_out += 1
-			FacilityDB.Kind.SHOP:
-				if f.occupants.is_empty():
-					if int(quota[FacilityDB.Kind.SHOP]) > 0 and _reachable(f):
-						quota[FacilityDB.Kind.SHOP] = int(quota[FacilityDB.Kind.SHOP]) - 1
-						_lease_shop(f)
-				elif f.eval == Rules.Eval.C:
 					_evict(f)
 					moved_out += 1
 			FacilityDB.Kind.SERVICE:
@@ -417,46 +405,80 @@ func _rest_period() -> void:
 					_staff(f)
 	if moved_out > 0:
 		say("%d tenants have left the tower." % moved_out)
-	elif moved_in > 0:
-		say("%d new tenants." % moved_in)
 	_check_stars()
 	_check_demands()
 
-## The late-morning viewing. Same earned-growth rule as everything else: a
-## flat only sells if some other flat is happy enough to be worth telling a
-## friend about, or if none has sold yet at all.
-func _condo_sales() -> void:
-	var quota := _growth_quota()
-	var sold := 0
-	for fid in tower.facilities.keys():
-		var f: Facility = tower.facilities.get(fid)
-		if f == null or f.wrecked or f.kind() != FacilityDB.Kind.CONDO or f.sold:
+## Letting rounds run through the working day. Anything you build in the
+## morning is taken the same morning, if the tower has earned it -- it used to
+## wait for the next three a.m., so everything built during the day sat empty
+## until you had stopped looking. Only a share of the vacancies goes each
+## round, so a floor of new offices fills over an afternoon rather than at once.
+func _letting_round(now: int) -> void:
+	var n := _let_kind(FacilityDB.Kind.OFFICE, now)
+	n += _let_kind(FacilityDB.Kind.SHOP, now)
+	# Flats are viewed in the late morning and nowhere else in the day.
+	if now >= CONDO_SALE_FROM and now < CONDO_SALE_TO:
+		n += _let_kind(FacilityDB.Kind.CONDO, now)
+	if n > 0:
+		say("%d new tenant%s moved in." % [n, "" if n == 1 else "s"])
+		_check_stars()
+
+func _let_kind(kind: int, now: int) -> int:
+	if not _letting_allowed(kind):
+		return 0
+	var vacant := []
+	for f in tower.all_of_kind(kind):
+		if f.wrecked:
 			continue
-		if int(quota[FacilityDB.Kind.CONDO]) <= 0:
+		if kind == FacilityDB.Kind.CONDO:
+			if f.sold:
+				continue
+		elif not f.occupants.is_empty():
+			continue
+		vacant.append(f)
+	if vacant.is_empty():
+		return 0
+	var take := maxi(1, int(ceil(float(vacant.size()) * LETTING_SHARE)))
+	var done := 0
+	for f in vacant:
+		if done >= take:
 			break
 		if not _reachable(f):
 			continue
-		quota[FacilityDB.Kind.CONDO] = int(quota[FacilityDB.Kind.CONDO]) - 1
-		_sell_condo(f)
-		sold += 1
-	if sold > 0:
-		say("%d flat%s sold this morning." % [sold, "" if sold == 1 else "s"])
+		match kind:
+			FacilityDB.Kind.OFFICE:
+				_lease_office(f)
+				engine.welcome(f, now, clock.is_weekend())
+			FacilityDB.Kind.SHOP:
+				_lease_shop(f)
+			FacilityDB.Kind.CONDO:
+				_sell_condo(f)
+		done += 1
+	return done
 
-## How many new tenants the tower has earned tonight, per kind.
-func _growth_quota() -> Dictionary:
-	var q := {}
-	for k in [FacilityDB.Kind.OFFICE, FacilityDB.Kind.CONDO, FacilityDB.Kind.SHOP]:
-		var occupied := 0
-		var happy := 0
-		for f in tower.all_of_kind(k):
-			if f.occupants.is_empty() or f.wrecked:
+## Word gets round. The manual: "if there is a lot of complaint ... the
+## Simtenants will advise others about it and the rumours will spread". Once
+## half of what is let is in crisis, nothing new lets until you fix it. That,
+## and whether a place can be reached at all, is what gates a tower's growth --
+## an arbitrary quota was doing it before, and two lettings a day meant fifty
+## offices would have taken twenty-five days to fill.
+func _letting_allowed(kind: int) -> bool:
+	var occupied := 0
+	var bad := 0
+	for f in tower.all_of_kind(kind):
+		if f.wrecked:
+			continue
+		if kind == FacilityDB.Kind.CONDO:
+			if not f.sold:
 				continue
-			occupied += 1
-			if f.eval == Rules.Eval.A:
-				happy += 1
-		# Nothing let yet: seed the first tenants so a new tower can start.
-		q[k] = maxi(happy, 2 if occupied == 0 else 0)
-	return q
+		elif f.occupants.is_empty():
+			continue
+		occupied += 1
+		if f.eval == Rules.Eval.C:
+			bad += 1
+	if occupied == 0:
+		return true                       # somebody has to be first
+	return bad * 2 < occupied
 
 func _reachable(f: Facility) -> bool:
 	if f.row == 0:
@@ -677,6 +699,14 @@ func try_place(type: String, seg: int, row: int, drag_w: int = -1,
 func _after_place(f: Facility) -> void:
 	f.built_quarter = _abs_quarter()
 	match f.kind():
+		FacilityDB.Kind.SERVICE:
+			# You paid for the guards; they are on duty now, not at 3am.
+			if f.capacity() > 0:
+				_staff(f)
+		FacilityDB.Kind.HOTEL:
+			# The day's timetable was drawn up at midnight and knows nothing
+			# about a room built since, so tonight's guests are booked here.
+			engine.book_tonight(f, clock.minute_of_day())
 		FacilityDB.Kind.FOOD:
 			var brands: Array = f.def().get("brands", [])
 			if not brands.is_empty():
