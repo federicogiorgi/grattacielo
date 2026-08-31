@@ -503,8 +503,22 @@ func _update_ghost() -> void:
 	if d.is_empty():
 		return
 	if t == "floor" and Game.tower.has_lobby():
-		view.ghost_cell = Vector2i(Game.tower.lobby_left, c.y)
-		view.ghost_w = Game.tower.lobby_width()
+		# The ghost promises exactly what the click will lay -- the reach from
+		# the floor that is already there out to the pointer, not the one cell
+		# the pointer is over.
+		var fseg := c.x
+		var fw := 1
+		if dragging:
+			fseg = mini(drag_start.x, c.x)
+			fw = absi(c.x - drag_start.x) + 1
+		var span := Game.tower.floor_span(fseg, c.y, fw)
+		if span.x < 0:
+			view.ghost_cell = Vector2i(fseg, c.y)
+			view.ghost_w = fw
+			view.ghost_ok = false
+			return
+		view.ghost_cell = Vector2i(span.x, c.y)
+		view.ghost_w = span.y - span.x + 1
 	elif dragging and String(d.get("drag", "")) in ["h", "repeat"]:
 		var lo := mini(drag_start.x, c.x)
 		var hi := maxi(drag_start.x, c.x)

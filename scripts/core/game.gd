@@ -689,11 +689,15 @@ func try_place(type: String, seg: int, row: int, drag_w: int = -1,
 		return _fail(limit)
 	var w: int = drag_w if drag_w > 0 else FacilityDB.size_of(type).x
 	if type == "floor":
-		# A storey is a storey. Building a floor lays the entire width the
-		# tower can support at that height, so the building stays a rectangle
-		# instead of growing spurs wherever you happened to drag.
-		seg = tower.lobby_left
-		w = tower.lobby_width()
+		# A storey stays in one piece: the floor reaches out from what is
+		# already built to where you pointed. See Tower.floor_span.
+		var span := tower.floor_span(seg, row, w)
+		if span.x < 0:
+			if tower.supported_span(row).x < 0:
+				return _fail("Nothing here to hold a floor up")
+			return _fail("There is already a floor here")
+		seg = span.x
+		w = span.y - span.x + 1
 	var chk := tower.check_place(type, seg, row, w)
 	if not chk["ok"]:
 		return _fail(String(chk["reason"]))

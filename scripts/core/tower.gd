@@ -117,6 +117,64 @@ func shaft_blocked(seg: int, row: int, w: int, ignore_id: int = -1) -> String:
 			return "Stairs cross " + FacilityDB.row_label(row)
 	return ""
 
+## The run of floor already standing on this storey, or (-1, -1) for none.
+func built_span(row: int) -> Vector2i:
+	var lo := -1
+	var hi := -1
+	for c in range(COLS):
+		if built(c, row):
+			if lo < 0:
+				lo = c
+			hi = c
+	return Vector2i(lo, hi)
+
+## The widest run this storey could hold: whatever holds it up, inside the
+## lobby. A floor above rests on the one below; a basement hangs from the one
+## above; the ground floor is the lobby itself.
+func supported_span(row: int) -> Vector2i:
+	if not has_lobby():
+		return Vector2i(-1, -1)
+	if row == 0:
+		return Vector2i(lobby_left, lobby_right)
+	var holder := built_span(row - 1 if row > 0 else row + 1)
+	if holder.x < 0:
+		return Vector2i(-1, -1)
+	return Vector2i(maxi(holder.x, lobby_left), mini(holder.y, lobby_right))
+
+## Where a click with the floor tool actually lays floor.
+##
+## A storey stays in ONE PIECE. You extend the floor you already have out to
+## where you pointed -- never an island in mid-air with a hole between, which
+## is what made towers grow spurs. A storey with nothing on it yet is a new
+## floor, and gets the full width whatever is underneath can hold.
+##
+## Returns (-1, -1) if there is nothing to lay: the click is already floor, or
+## nothing under it could hold any.
+func floor_span(seg: int, row: int, w: int) -> Vector2i:
+	var support := supported_span(row)
+	if support.x < 0:
+		return Vector2i(-1, -1)
+	var want_lo := maxi(seg, support.x)
+	var want_hi := mini(seg + maxi(w, 1) - 1, support.y)
+	if want_hi < want_lo:
+		return Vector2i(-1, -1)
+	var have := built_span(row)
+	var span := support
+	if have.x >= 0:
+		# reach from the edge of what is there out to where the pointer is
+		if want_hi < have.x:
+			span = Vector2i(want_lo, have.x - 1)
+		elif want_lo > have.y:
+			span = Vector2i(have.y + 1, want_hi)
+		else:
+			# the pointer is over floor that already exists: fill whatever of
+			# the asked-for run is still missing, either side of it
+			span = Vector2i(mini(want_lo, have.x), maxi(want_hi, have.y))
+	for c in range(span.x, span.y + 1):
+		if not built(c, row):
+			return span
+	return Vector2i(-1, -1)      # every cell of it is floor already
+
 func range_free(seg: int, row: int, w: int) -> bool:
 	for c in range(seg, seg + w):
 		if not cell_free(c, row):
@@ -277,6 +335,26 @@ func check_place(type: String, seg: int, row: int, w_override: int = -1,
 		if not range_built(seg, row + h, w):
 			res.reason = "No floor above"
 			return res
+
+	# The floor tool asks about FLOOR, never about what is standing on it. A
+	# room, a lift or a staircase all sit on floor that already exists, so
+	# those cells simply have nothing to lay -- refusing the whole run because
+	# one office is in it is what stopped a storey being extended past its
+	# first tenant. floor_span has already picked the run; place() writes only
+	# the empty cells of it.
+	if type == "floor":
+		res.ok = true
+		res.cost = int(d["cost"])
+		var laid := 0
+		for c in range(seg, seg + w):
+			if not built(c, row):
+				laid += 1
+		if laid == 0:
+			res.ok = false
+			res.reason = "There is already a floor here"
+			return res
+		res.floor_cost = laid * int(FacilityDB.DEFS["floor"]["cost"])
+		return res
 
 	# Multi-storey things need every one of their rows clear. A lift or a
 	# staircase crossing the site says so by name: both are drawn over the top

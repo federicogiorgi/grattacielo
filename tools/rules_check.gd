@@ -169,7 +169,7 @@ func _transport() -> void:
 	ok(not n.serves_row(5), "unless you switch that floor off")
 	ok(Rules.MAX_STAIR_FLIGHTS == 4, "nobody climbs more than four flights")
 	_climb_limits()
-	_floor_is_whole()
+	_floor_stays_in_one_piece()
 	_shafts_stretch()
 	_moon_holds_all_night()
 	_one_rule_for_shafts()
@@ -178,22 +178,58 @@ func _transport() -> void:
 ## How far the legs alone will carry somebody. The manual gives two numbers
 ## for one journey -- four flights of stairs, seven escalator rides -- and both
 ## are checked by walking a tower rather than by reading the constant back.
-## A floor is the whole floor: the tower stays a rectangle rather than growing
-## spurs wherever the mouse happened to be dragged.
-func _floor_is_whole() -> void:
+## A storey stays in ONE PIECE. A new one is laid to the width its support can
+## hold; after that the tool reaches out from the floor you have to where you
+## pointed, so there is never a gap in the middle of a row.
+func _floor_stays_in_one_piece() -> void:
 	var g = load("res://scripts/core/game.gd").new()
 	root.add_child(g)
 	g.new_game()
+	g.econ.funds = 100000000
 	g.try_place("lobby", 40, 0, 100)
-	# ask for eight segments in the middle and get all hundred
+
+	# a brand new storey: the whole width the lobby holds up
 	g.try_place("floor", 70, 1, 8)
-	var built := 0
-	for c in range(40, 140):
-		if g.tower.built(c, 1):
-			built += 1
-	ok(built == 100, "a floor lays the full width, got %d of 100" % built)
-	ok(not g.tower.built(39, 1) and not g.tower.built(140, 1),
-		"and stops at the edge of the lobby")
+	var run: Vector2i = g.tower.built_span(1)
+	ok(run == Vector2i(40, 139), "a new storey is laid full width, got %s" % run)
+
+	# now a storey above a PARTIAL one. Build floor 2 across half of floor 1,
+	# by bulldozing floor 1 back first -- easier: put floor 2 down, then check
+	# extending it.
+	g.try_place("floor", 70, 2, 8)
+	ok(g.tower.built_span(2) == Vector2i(40, 139), "and so is the next")
+
+	# Cut a storey short so there is something to extend. Floor 3 is laid full
+	# width; take the right half away again and it must grow back to order.
+	g.try_place("floor", 70, 3, 8)
+	for c in range(100, 140):
+		g.tower.unbuild("floor", c, 3, 1)
+	var short: Vector2i = g.tower.built_span(3)
+	ok(short == Vector2i(40, 99), "a short storey, %s" % short)
+
+	# click at 120: floor appears from where the storey ends to the click, and
+	# nowhere else
+	g.try_place("floor", 120, 3, 1)
+	ok(g.tower.built_span(3) == Vector2i(40, 120),
+		"the floor reaches out to the click, got %s" % g.tower.built_span(3))
+	ok(g.tower.built(100, 3) and g.tower.built(120, 3), "filling the gap")
+	ok(not g.tower.built(121, 3), "and stopping there, not at the far wall")
+
+	# clicking inside what is already floor lays nothing
+	var again: Dictionary = g.try_place("floor", 60, 3, 1)
+	ok(not again.get("ok", false), "clicking existing floor does nothing")
+	ok(g.tower.built_span(3) == Vector2i(40, 120), "and changes nothing")
+
+	# and it may not reach past what holds it up
+	g.try_place("floor", 135, 4, 1)
+	ok(g.tower.built_span(4).x < 0, "no floor where nothing holds one up")
+
+	# extending leftwards works the same way
+	for c in range(40, 60):
+		g.tower.unbuild("floor", c, 3, 1)
+	g.try_place("floor", 45, 3, 1)
+	ok(g.tower.built_span(3) == Vector2i(45, 120),
+		"and reaches left as readily as right, got %s" % g.tower.built_span(3))
 
 ## Dragging a shaft taller and shorter again. The finger tool that used to be
 ## the only way in is gone; this is the operation behind the drag.
